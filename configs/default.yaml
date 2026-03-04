@@ -1,0 +1,94 @@
+# Semantic Segmentation Training Configuration
+# ==========================================
+
+# Experiment settings
+experiment:
+  name: "segmentation_default"
+  version: "v1"
+  seed: 42
+
+# Data settings
+data:
+  base_dir: "./data"
+  dataset_dir: "dataset"
+  train_dir: "train"
+  val_dir: "val"
+  test_dir: "test"
+  image_size: 224
+  num_classes: 2
+  val_split: 0.1  # Used if no separate val dir
+
+# Model settings
+model:
+  architecture: "Unet"
+  # encoder: "resnet18"
+  encoder: "resnet18"  # or resnet50, resnet101, efficientnet-b4, etc.
+  encoder_weights: "imagenet"
+  activation: "softmax2d"
+  num_classes: 2
+
+# Training settings
+training:
+  epochs: 5
+  # batch_size: 128  # Per GPU batch size
+  batch_size: 128  # Per GPU batch size
+  learning_rate: 0.0001
+  weight_decay: 0.0001
+  num_workers: 2  # Reduced for PCIe topology (was 4)
+  mixed_precision: true  # Enable FP16/BF16
+  gradient_accumulation_steps: 2  # Accumulate gradients to reduce sync frequency
+
+# Loss settings
+loss:
+  type: "focal"  # Options: focal, dice, combined, cross_entropy
+  focal_gamma: 2.0
+  class_weights: [1.0, 2.0]
+  combined_alpha: 0.5  # Weight for focal in combined loss
+
+# Scheduler settings
+scheduler:
+  type: "reduce_on_plateau"
+  factor: 0.1
+  patience: 5
+  min_lr: 0.000001
+
+# Early stopping
+early_stopping:
+  patience: 50
+  min_delta: 0.0001
+
+# Augmentation settings
+augmentation:
+  train:
+    rotate_limit: 360
+    rotate_p: 0.5
+    h_flip_p: 0.5
+    v_flip_p: 0.5
+    brightness_limit: 0.3
+    contrast_limit: 0.3
+    brightness_contrast_p: 0.3
+    gamma_limit: [85, 115]
+    gamma_p: 0.3
+  normalize:
+    mean: [0.0, 0.0, 0.0]
+    std: [1.0, 1.0, 1.0]
+    max_pixel_value: 255.0
+
+# Distributed training settings
+distributed:
+  backend: "nccl"  # Falls back to gloo if NCCL fails
+  find_unused_parameters: false
+
+# Logging settings
+logging:
+  log_interval: 10  # Log every N batches
+  save_top_k: 3  # Save top K models
+  tensorboard: true
+  wandb: true 
+  wandb_project: "semantic_segmentation"
+
+# Paths
+paths:
+  output_dir: "./outputs"
+  checkpoint_dir: "./checkpoints"
+  log_dir: "./logs"
