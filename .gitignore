@@ -18,3 +18,7 @@ logs/
 .bandit
 Makefiletraining_outputs/checkpoints/
 wandb/
+training_outputs/checkpoints/
+*.pth
+*.pt
+wandb/
