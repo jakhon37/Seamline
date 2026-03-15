@@ -11,7 +11,7 @@ experiment:
 
 # Data settings
 data:
-  base_dir: "./data"
+  base_dir: "${DATA_DIR:-./data}"
   dataset_dir: "dataset"
   train_dir: "train"
   val_dir: "val"

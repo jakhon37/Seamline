@@ -13,17 +13,21 @@ class SegmentationMetrics:
         self,
         num_classes: int = 2,
         threshold: float = 0.5,
-        device: torch.device = None
+        device: torch.device = None,
+        compute_on_cpu: bool = True
     ):
         """
         Args:
             num_classes: Number of segmentation classes
             threshold: Threshold for binary classification
-            device: Device to place metrics on
+            device: Device to place metrics on (default: CPU for memory efficiency)
+            compute_on_cpu: If True, compute metrics on CPU to save GPU memory
         """
         self.num_classes = num_classes
         self.threshold = threshold
-        self.device = device or torch.device('cpu')
+        self.compute_on_cpu = compute_on_cpu
+        # Always use CPU for metrics to free up GPU memory
+        self.device = torch.device('cpu') if compute_on_cpu else (device or torch.device('cpu'))
         
         # Always use multiclass for segmentation (even for 2 classes)
         self.f1 = F1Score(
@@ -55,24 +59,31 @@ class SegmentationMetrics:
         Update metrics with new predictions.
         
         Args:
-            preds: Predictions [B, C, H, W]
+            preds: Predictions [B, C, H, W] or [B, H, W]
             targets: Ground truth [B, C, H, W] (one-hot) or [B, H, W]
         """
-        # Convert predictions to class indices
+        # Move to CPU if computing on CPU (saves GPU memory)
+        if self.compute_on_cpu:
+            preds = preds.detach().cpu()
+            targets = targets.detach().cpu()
+        
+        # Convert predictions to class indices (do once)
         if preds.dim() == 4:
             preds = torch.argmax(preds, dim=1)
         
-        # Convert targets to class indices
+        # Convert targets to class indices (do once)
         if targets.dim() == 4:
             targets = torch.argmax(targets, dim=1)
         
-        preds = preds.flatten()
-        targets = targets.flatten()
+        # Flatten once
+        preds_flat = preds.flatten()
+        targets_flat = targets.flatten()
         
-        self.f1.update(preds, targets)
-        self.precision.update(preds, targets)
-        self.recall.update(preds, targets)
-        self.iou.update(preds, targets)
+        # Update all metrics with same tensors (more efficient)
+        self.f1.update(preds_flat, targets_flat)
+        self.precision.update(preds_flat, targets_flat)
+        self.recall.update(preds_flat, targets_flat)
+        self.iou.update(preds_flat, targets_flat)
     
     def compute(self) -> dict:
         """

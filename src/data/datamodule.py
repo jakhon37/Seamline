@@ -83,17 +83,25 @@ def create_dataloaders(
             random_state=config['experiment']['seed']
         )
     
+    # Get optimization settings
+    use_onehot = data_cfg.get('use_onehot_encoding', False)  # Default: optimized class indices
+    cache_val = data_cfg.get('cache_validation', False)  # Cache validation set in memory
+    
     # Create datasets
     train_dataset = SegmentationDataset(
         train_images, train_masks,
         transform=train_transform,
-        num_classes=data_cfg['num_classes']
+        num_classes=data_cfg['num_classes'],
+        cache_in_memory=False,  # Don't cache training (augmentation varies)
+        use_onehot=use_onehot
     )
     
     val_dataset = SegmentationDataset(
         val_images, val_masks,
         transform=val_transform,
-        num_classes=data_cfg['num_classes']
+        num_classes=data_cfg['num_classes'],
+        cache_in_memory=cache_val,  # Cache validation for speedup
+        use_onehot=use_onehot
     )
     
     # Test dataset (if exists)
@@ -106,14 +114,18 @@ def create_dataloaders(
             test_dataset = SegmentationDataset(
                 test_images, test_masks,
                 transform=val_transform,
-                num_classes=data_cfg['num_classes']
+                num_classes=data_cfg['num_classes'],
+                cache_in_memory=False,
+                use_onehot=use_onehot
             )
             test_loader = DataLoader(
                 test_dataset,
                 batch_size=train_cfg['batch_size'],
                 shuffle=False,
-                num_workers=train_cfg['num_workers'],
-                pin_memory=True
+                num_workers=num_workers,
+                pin_memory=True,
+                prefetch_factor=prefetch_factor if num_workers > 0 else None,
+                persistent_workers=persistent_workers
             )
     
     # Create samplers for distributed training
@@ -136,15 +148,22 @@ def create_dataloaders(
         val_sampler = None
         shuffle_train = True
     
+    # Get DataLoader optimization settings
+    num_workers = train_cfg.get('num_workers', 8)
+    prefetch_factor = train_cfg.get('prefetch_factor', 2)
+    persistent_workers = train_cfg.get('persistent_workers', True) and num_workers > 0
+    
     # Create dataloaders
     train_loader = DataLoader(
         train_dataset,
         batch_size=train_cfg['batch_size'],
         shuffle=shuffle_train,
         sampler=train_sampler,
-        num_workers=train_cfg['num_workers'],
+        num_workers=num_workers,
         pin_memory=True,
-        drop_last=True
+        drop_last=True,
+        prefetch_factor=prefetch_factor if num_workers > 0 else None,
+        persistent_workers=persistent_workers
     )
     
     val_loader = DataLoader(
@@ -152,8 +171,10 @@ def create_dataloaders(
         batch_size=train_cfg['batch_size'],
         shuffle=False,
         sampler=val_sampler,
-        num_workers=train_cfg['num_workers'],
-        pin_memory=True
+        num_workers=num_workers,
+        pin_memory=True,
+        prefetch_factor=prefetch_factor if num_workers > 0 else None,
+        persistent_workers=persistent_workers
     )
     
     return train_loader, val_loader, test_loader, train_sampler

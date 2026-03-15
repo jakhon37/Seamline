@@ -1,0 +1,95 @@
+[flake8]
+# Base settings
+max-line-length = 100
+max-complexity = 15
+max-doc-length = 100
+
+# Exclude patterns
+exclude =
+    .git,
+    __pycache__,
+    .pytest_cache,
+    .mypy_cache,
+    .tox,
+    .venv,
+    venv,
+    env,
+    build,
+    dist,
+    *.egg-info,
+    wandb,
+    checkpoints,
+    training_outputs,
+    docs/_build
+
+# Ignore specific error codes
+ignore =
+    # E203: whitespace before ':' (conflicts with black)
+    E203,
+    # E266: too many leading '#' for block comment
+    E266,
+    # E501: line too long (handled by black)
+    E501,
+    # W503: line break before binary operator (conflicts with black)
+    W503,
+    # W504: line break after binary operator
+    W504,
+    # D100: Missing docstring in public module
+    D100,
+    # D101: Missing docstring in public class
+    D101,
+    # D102: Missing docstring in public method
+    D102,
+    # D103: Missing docstring in public function
+    D103,
+    # D104: Missing docstring in public package
+    D104,
+    # D107: Missing docstring in __init__
+    D107,
+    # F401: module imported but unused (sometimes needed for __init__.py)
+    # F401,
+
+# Select error codes to check
+select =
+    # Pycodestyle errors
+    E,
+    # Pycodestyle warnings
+    W,
+    # Pyflakes
+    F,
+    # McCabe complexity
+    C,
+    # flake8-bugbear
+    B,
+    # flake8-comprehensions
+    C4,
+    # flake8-simplify
+    SIM,
+
+# File patterns
+filename =
+    *.py
+
+# Per-file ignores
+per-file-ignores =
+    # Ignore unused imports in __init__.py files
+    __init__.py:F401,E402
+    # Ignore in test files
+    tests/*:D,E402
+    # Ignore in scripts
+    scripts/*:D
+
+# McCabe complexity
+max-complexity = 15
+
+# Docstring conventions (for flake8-docstrings)
+docstring-convention = google
+
+# Show source code for each error
+show-source = true
+
+# Show statistics
+statistics = true
+
+# Count errors
+count = true

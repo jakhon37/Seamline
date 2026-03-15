@@ -415,7 +415,7 @@ def main(args):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Run inference on images')
+    parser = argparse.ArgumentParser(description='Run inference on segmentation images')
     parser.add_argument(
         '--checkpoint',
         type=str,

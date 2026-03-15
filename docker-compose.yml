@@ -1,0 +1,186 @@
+version: '3.8'
+
+services:
+  # ========================================
+  # Training Service - Main Application
+  # ========================================
+  training:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    image: segmentation:latest
+    container_name: segmentation-training
+    
+    # GPU Support
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - CUDA_VISIBLE_DEVICES=0,1,2,3
+      
+      # PyTorch/NCCL Configuration
+      - NCCL_P2P_DISABLE=1
+      - NCCL_IB_DISABLE=1
+      - NCCL_PROTO=LL
+      - OMP_NUM_THREADS=8
+      - TORCH_DISTRIBUTED_DEBUG=OFF
+      
+      # Python Configuration
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+      
+      # Weights & Biases (optional)
+      - WANDB_API_KEY=${WANDB_API_KEY:-}
+      - WANDB_PROJECT=${WANDB_PROJECT:-semantic-segmentation}
+      - WANDB_ENTITY=${WANDB_ENTITY:-}
+      
+      # TensorBoard Configuration
+      - TENSORBOARD_PORT=6006
+    
+    volumes:
+      # Source code (for development)
+      - ./src:/app/src:rw
+      - ./configs:/app/configs:rw
+      - ./scripts:/app/scripts:rw
+      - ./tests:/app/tests:rw
+      
+      # Data directory (mount your dataset here)
+      - ${DATA_DIR:-./data}:/data:ro
+      
+      # Output directories
+      - ./checkpoints:/app/checkpoints:rw
+      - ./training_outputs:/app/training_outputs:rw
+      - ./wandb:/app/wandb:rw
+      
+      # Configuration files
+      - ./pyproject.toml:/app/pyproject.toml:ro
+      - ./pytest.ini:/app/pytest.ini:ro
+      - ./.flake8:/app/.flake8:ro
+    
+    ports:
+      - "6006:6006"  # TensorBoard
+    
+    # Resource limits
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    
+    # Command (can be overridden)
+    command: bash
+    
+    # Keep container running
+    stdin_open: true
+    tty: true
+    
+    networks:
+      - segmentation-net
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import torch; assert torch.cuda.is_available()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ========================================
+  # TensorBoard Service
+  # ========================================
+  tensorboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: base
+    image: segmentation-tensorboard:latest
+    container_name: segmentation-tensorboard
+    
+    command: >
+      sh -c "pip install tensorboard &&
+             tensorboard --logdir=/logs --bind_all --port=6006"
+    
+    volumes:
+      - ./training_outputs:/logs:ro
+      - ./wandb:/wandb:ro
+    
+    ports:
+      - "6007:6006"  # Exposed on different host port to avoid conflict
+    
+    networks:
+      - segmentation-net
+    
+    depends_on:
+      - training
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6006"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ========================================
+  # Jupyter Notebook Service (Optional)
+  # ========================================
+  jupyter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    image: segmentation:latest
+    container_name: segmentation-jupyter
+    
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - JUPYTER_ENABLE_LAB=yes
+    
+    volumes:
+      - ./src:/app/src:rw
+      - ./configs:/app/configs:rw
+      - ./notebooks:/app/notebooks:rw
+      - ${DATA_DIR:-./data}:/data:ro
+      - ./checkpoints:/app/checkpoints:rw
+      - ./training_outputs:/app/training_outputs:rw
+    
+    ports:
+      - "8888:8888"
+    
+    command: >
+      sh -c "pip install jupyter jupyterlab &&
+             jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root
+             --NotebookApp.token='' --NotebookApp.password=''"
+    
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    
+    networks:
+      - segmentation-net
+    
+    profiles:
+      - jupyter
+
+# ========================================
+# Networks
+# ========================================
+networks:
+  segmentation-net:
+    driver: bridge
+
+# ========================================
+# Volumes (Named Volumes - Optional)
+# ========================================
+volumes:
+  checkpoints:
+  training_outputs:
+  wandb_data:

@@ -45,6 +45,9 @@ from src.utils import (
     is_main_process,
     reduce_tensor
 )
+from src.utils.config_validator import validate_config, expand_environment_variables
+from src.utils.memory_tracker import MemoryTracker
+from src.utils.profiler import TrainingProfiler
 
 
 def set_seed(seed: int):
@@ -58,9 +61,16 @@ def set_seed(seed: int):
 
 
 def load_config(config_path: str) -> dict:
-    """Load configuration from YAML file."""
+    """Load configuration from YAML file with validation."""
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
+    
+    # Expand environment variables
+    config = expand_environment_variables(config)
+    
+    # Validate configuration
+    validate_config(config)
+    
     return config
 
 
@@ -136,7 +146,8 @@ def train_one_epoch(
                 reduced_loss = actual_loss
             
             loss_meter.update(reduced_loss.item(), images.size(0))
-            metrics.update(outputs.float(), masks)  # Convert to float32 for metrics
+            # Metrics now handle .detach().cpu() internally for memory efficiency
+            metrics.update(outputs, masks)
         
         pbar.set_postfix({'loss': f'{loss_meter.avg:.4f}'})
     
@@ -195,7 +206,8 @@ def validate(
             reduced_loss = loss
         
         loss_meter.update(reduced_loss.item(), images.size(0))
-        metrics.update(outputs.float(), masks)  # Convert to float32 for metrics
+        # Metrics now handle .detach().cpu() internally for memory efficiency
+        metrics.update(outputs, masks)
         
         pbar.set_postfix({'loss': f'{loss_meter.avg:.4f}'})
     
@@ -293,7 +305,8 @@ def main(args):
         encoder=model_cfg['encoder'],
         encoder_weights=model_cfg['encoder_weights'],
         num_classes=model_cfg['num_classes'],
-        activation=model_cfg['activation']
+        activation=model_cfg['activation'],
+        gradient_checkpointing=model_cfg.get('gradient_checkpointing', False)
     )
     model = model.to(device)
     
@@ -310,8 +323,7 @@ def main(args):
             output_device=rank,
             find_unused_parameters=config['distributed'].get('find_unused_parameters', False)
         )
-        # Synchronize before creating other CUDA objects
-        dist.barrier()
+        # Removed unnecessary barrier - DDP initialization handles sync
     
     # Create loss function (weights handled inside forward pass)
     criterion = create_loss(config, device)
@@ -360,13 +372,11 @@ def main(args):
     else:
         scheduler = None
     
-    # Create metrics (initialize on CPU first for distributed stability)
-    if distributed:
-        dist.barrier()  # Ensure all processes are synchronized
-    
+    # Create metrics (compute on CPU by default for GPU memory savings)
     metrics = SegmentationMetrics(
         num_classes=config['data']['num_classes'],
-        device=device
+        device=device,
+        compute_on_cpu=train_cfg.get('metrics_on_cpu', True)
     )
     
     # Create checkpoint manager - use experiment_dir defined earlier
@@ -393,9 +403,27 @@ def main(args):
     early_stop_cfg = config['early_stopping']
     epochs_no_improve = 0
     
+    # Initialize memory tracker and profiler
+    memory_tracker = MemoryTracker(
+        enabled=train_cfg.get('track_memory', True) and torch.cuda.is_available(),
+        device_id=rank
+    )
+    
+    profiler = TrainingProfiler(
+        enabled=train_cfg.get('enable_profiling', False),
+        output_dir=os.path.join(experiment_dir, 'profiler'),
+        wait_steps=1,
+        warmup_steps=2,
+        active_steps=3
+    )
+    
     # Training loop
     if is_main_process(rank):
         logger.info("Starting training...")
+        if train_cfg.get('enable_profiling', False):
+            logger.info("Profiling enabled - will profile first few epochs")
+        
+        profiler.start()
     
     for epoch in range(start_epoch, train_cfg['epochs']):
         # Set epoch for distributed sampler
@@ -425,12 +453,16 @@ def main(args):
         
         # Logging (main process only)
         if is_main_process(rank):
+            # Get memory stats
+            mem_stats_str = memory_tracker.get_formatted_stats()
+            
             logger.info(
                 f"Epoch {epoch}: "
                 f"Train Loss={train_loss:.5f}, Val Loss={val_loss:.5f}, "
                 f"LR={current_lr:.2e}, "
                 f"F1={val_metrics['f1']:.4f}, IoU={val_metrics['iou']:.4f}"
             )
+            logger.info(f"  {mem_stats_str}")
             
             if metric_logger:
                 metric_logger.log_epoch(
@@ -461,22 +493,31 @@ def main(args):
                 epoch, val_loss, val_metrics, val_loss, distributed
             )
         
-        # Early stopping check (broadcast from main process)
+        # Early stopping check - use all_reduce instead of broadcast for efficiency
         if distributed:
-            stop_tensor = torch.tensor([epochs_no_improve], device=device)
-            dist.broadcast(stop_tensor, src=0)
-            epochs_no_improve = stop_tensor.item()
+            stop_tensor = torch.tensor([float(epochs_no_improve)], device=device)
+            dist.all_reduce(stop_tensor, op=dist.ReduceOp.MAX)
+            epochs_no_improve = int(stop_tensor.item())
         
         if epochs_no_improve >= early_stop_cfg['patience']:
             if is_main_process(rank):
                 logger.info(f"Early stopping at epoch {epoch}")
             break
+        
+        # Profiler step (if enabled)
+        if is_main_process(rank):
+            profiler.step()
+    
+    # Stop profiler
+    if is_main_process(rank):
+        profiler.stop()
     
     # Save final training history
     if is_main_process(rank) and metric_logger:
         metric_logger.save_history()
         metric_logger.close()
         logger.info(f"Training complete. Best Val Loss: {best_loss:.5f}")
+        logger.info(f"Final GPU Memory Stats: {memory_tracker.get_formatted_stats()}")
     
     # Cleanup
     if distributed:
