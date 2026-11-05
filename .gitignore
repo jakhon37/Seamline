@@ -1,27 +1,43 @@
+# Python
 __pycache__/
 *.py[cod]
-.DS_Store
-wandb/*
-training_outputs/
-checkpoints/
-data/
-datasets/
-*.tif
-*.png
-*.jpg
-*.jpeg
-logs/
-*.log
+*.egg-info/
+.mypy_cache/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+bandit-report.json
+
+# Environment
 .env
 .env.*
 !.env.example
-.pre-commit-config.yaml
-.flake8
-.mypy_cache/
-.bandit
-Makefiletraining_outputs/checkpoints/
+venv/
+.venv/
+
+# Data, anchored so src/data stays tracked
+/data/
+/datasets/
+
+# Training outputs
 wandb/
-training_outputs/checkpoints/
+logs/
+*.log
+checkpoints/
+outputs/
+training_outputs/
+benchmark_results/
 *.pth
 *.pt
-wandb/
+*.onnx
+
+# Images
+*.tif
+*.tiff
+*.png
+*.jpg
+*.jpeg
+
+# OS
+.DS_Store

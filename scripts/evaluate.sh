@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Semantic Segmentation Evaluation Script
+# mySegLib Evaluation Script
 # =============================================================================
 
 set -e
@@ -8,7 +8,6 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 CONFIG_FILE="${PROJECT_DIR}/configs/default.yaml"
-CONDA_ENV="base"
 
 # Parse arguments
 CHECKPOINT=""
@@ -56,9 +55,11 @@ if [ -z "${CHECKPOINT}" ]; then
     exit 1
 fi
 
-# Activate environment
-source "$(conda info --base)/etc/profile.d/conda.sh"
-conda activate ${CONDA_ENV}
+# Activate a conda environment if CONDA_ENV is set
+if [ -n "${CONDA_ENV:-}" ]; then
+    source "$(conda info --base)/etc/profile.d/conda.sh"
+    conda activate "${CONDA_ENV}"
+fi
 
 cd "${PROJECT_DIR}"
 

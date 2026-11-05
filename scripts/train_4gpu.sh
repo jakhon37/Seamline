@@ -4,7 +4,7 @@
 set -e
 
 echo "=============================================="
-echo "Semantic Segmentation Training (4 GPU DDP)"
+echo "mySegLib Training (4 GPU DDP)"
 echo "=============================================="
 echo "Using GPUs: ${GPUS:-0,1,2,3}"
 
@@ -17,7 +17,7 @@ export OMP_NUM_THREADS=4   # OpenMP threads per process
 echo "NCCL Configuration:"
 echo "  - P2P Disabled (not supported)"
 echo "  - Protocol: LL (Low-Latency)"
-echo "  - Optimized for PCIe-connected GPU topology"
+echo "  - For PCIe-connected GPUs"
 echo ""
 
 # Set visible devices

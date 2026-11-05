@@ -15,8 +15,6 @@ echo "- Batch size: 64 per GPU"
 echo "- Gradient accumulation: 4 steps"
 echo "- Mixed precision: Enabled (halves gradient size)"
 echo "- NCCL Protocol: LL"
-echo "- Expected speedup: 2.5-2.8x (vs single GPU)"
-echo ""
 echo ""
 
 bash scripts/train_4gpu.sh

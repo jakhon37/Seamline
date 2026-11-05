@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Semantic Segmentation Training Script (DataParallel - 4 GPU)
+# mySegLib Training Script (DataParallel - 4 GPU)
 # =============================================================================
 # Uses nn.DataParallel as a fallback when DDP is not stable
 #
@@ -14,12 +14,9 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 CONFIG_FILE="${PROJECT_DIR}/configs/default.yaml"
-CONDA_ENV="base"
 
 # Default: use all 4 GPUs
 GPU_IDS="0,1,2,3"
-GPU_IDS="0,1"
-GPU_IDS="1,2"
 
 # NCCL settings for GPUs without P2P or NVLink
 export NCCL_P2P_DISABLE=1
@@ -55,10 +52,13 @@ done
 
 # Activate conda
 echo "=============================================="
-echo "Semantic Segmentation Training (DataParallel)"
+echo "mySegLib Training (DataParallel)"
 echo "=============================================="
-source "$(conda info --base)/etc/profile.d/conda.sh"
-conda activate ${CONDA_ENV}
+# Activate a conda environment if CONDA_ENV is set
+if [ -n "${CONDA_ENV:-}" ]; then
+    source "$(conda info --base)/etc/profile.d/conda.sh"
+    conda activate "${CONDA_ENV}"
+fi
 
 echo "Using GPUs: ${GPU_IDS}"
 echo ""

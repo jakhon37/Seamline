@@ -35,11 +35,10 @@ training:
   learning_rate: 0.0001
   weight_decay: 0.0001
   num_workers: 2  # Reduced for PCIe topology
-  mixed_precision: true  # CRITICAL: Halves gradient size (480MB → 240MB)
-  gradient_accumulation_steps: 4  # CRITICAL: Reduces sync frequency
+  mixed_precision: true  # Halves gradient size
+  gradient_accumulation_steps: 4  # Reduces sync frequency
                                     # Effective batch = 64 * 4 GPUs * 4 = 1024
                                     # Sync every 4 batches instead of every batch
-                                    # Reduces synchronization frequency
 
 # Loss settings
 loss:

@@ -1,8 +1,8 @@
 """
 Data Augmentation Transforms
 """
-import cv2
 import albumentations as A
+import cv2
 from albumentations.pytorch import ToTensorV2
 
 
@@ -20,11 +20,11 @@ def get_train_transforms(
     gamma_p: float = 0.3,
     mean: list = None,
     std: list = None,
-    max_pixel_value: float = 255.0
+    max_pixel_value: float = 255.0,
 ):
     """
     Get training data augmentation transforms.
-    
+
     Args:
         height: Target image height
         width: Target image width
@@ -40,7 +40,7 @@ def get_train_transforms(
         mean: Normalization mean
         std: Normalization std
         max_pixel_value: Maximum pixel value for normalization
-        
+
     Returns:
         Albumentations Compose transform
     """
@@ -48,21 +48,23 @@ def get_train_transforms(
         mean = [0.0, 0.0, 0.0]
     if std is None:
         std = [1.0, 1.0, 1.0]
-    
-    return A.Compose([
-        A.Resize(height=height, width=width, interpolation=cv2.INTER_NEAREST),
-        A.Rotate(limit=rotate_limit, p=rotate_p),
-        A.HorizontalFlip(p=h_flip_p),
-        A.VerticalFlip(p=v_flip_p),
-        A.Normalize(mean=mean, std=std, max_pixel_value=max_pixel_value),
-        A.RandomBrightnessContrast(
-            brightness_limit=brightness_limit,
-            contrast_limit=contrast_limit,
-            p=brightness_contrast_p
-        ),
-        A.RandomGamma(gamma_limit=gamma_limit, p=gamma_p),
-        ToTensorV2(),
-    ])
+
+    return A.Compose(
+        [
+            A.Resize(height=height, width=width, interpolation=cv2.INTER_NEAREST),
+            A.Rotate(limit=rotate_limit, p=rotate_p),
+            A.HorizontalFlip(p=h_flip_p),
+            A.VerticalFlip(p=v_flip_p),
+            A.Normalize(mean=mean, std=std, max_pixel_value=max_pixel_value),
+            A.RandomBrightnessContrast(
+                brightness_limit=brightness_limit,
+                contrast_limit=contrast_limit,
+                p=brightness_contrast_p,
+            ),
+            A.RandomGamma(gamma_limit=gamma_limit, p=gamma_p),
+            ToTensorV2(),
+        ]
+    )
 
 
 def get_val_transforms(
@@ -70,18 +72,18 @@ def get_val_transforms(
     width: int = 224,
     mean: list = None,
     std: list = None,
-    max_pixel_value: float = 255.0
+    max_pixel_value: float = 255.0,
 ):
     """
     Get validation/test data transforms.
-    
+
     Args:
         height: Target image height
         width: Target image width
         mean: Normalization mean
         std: Normalization std
         max_pixel_value: Maximum pixel value for normalization
-        
+
     Returns:
         Albumentations Compose transform
     """
@@ -89,9 +91,11 @@ def get_val_transforms(
         mean = [0.0, 0.0, 0.0]
     if std is None:
         std = [1.0, 1.0, 1.0]
-    
-    return A.Compose([
-        A.Resize(height=height, width=width),
-        A.Normalize(mean=mean, std=std, max_pixel_value=max_pixel_value),
-        ToTensorV2(),
-    ])
+
+    return A.Compose(
+        [
+            A.Resize(height=height, width=width),
+            A.Normalize(mean=mean, std=std, max_pixel_value=max_pixel_value),
+            ToTensorV2(),
+        ]
+    )

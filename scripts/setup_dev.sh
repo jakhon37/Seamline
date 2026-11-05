@@ -110,7 +110,7 @@ done
 # Main Setup
 # =============================================================================
 
-print_header "Semantic Segmentation - Development Setup"
+print_header "mySegLib - Development Setup"
 
 # Change to project root
 cd "$PROJECT_ROOT"
@@ -236,12 +236,12 @@ fi
 print_header "Step 4: Installing Project Dependencies"
 
 # Install main dependencies
-if [ -f "docs/requirements.txt" ]; then
-    print_info "Installing main dependencies from docs/requirements.txt..."
-    pip install --quiet -r docs/requirements.txt
+if [ -f "requirements.txt" ]; then
+    print_info "Installing main dependencies from requirements.txt..."
+    pip install --quiet -r requirements.txt
     print_success "Main dependencies installed"
 else
-    print_warning "docs/requirements.txt not found, skipping main dependencies"
+    print_warning "requirements.txt not found, skipping main dependencies"
 fi
 
 # Install development dependencies
@@ -313,10 +313,10 @@ import segmentation_models_pytorch as smp
 import albumentations
 import cv2
 import numpy as np
-from src.models.factory import ModelFactory
-from src.data.dataset import SegmentationDataset
-from src.losses.losses import FocalLoss, DiceLoss
-from src.utils.config import ConfigLoader
+from src.models import create_model
+from src.data import SegmentationDataset
+from src.losses import FocalLoss, CombinedLoss, create_loss
+from src.utils import SegmentationMetrics
 
 print('✓ All imports successful')
 print(f'✓ Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')

@@ -1,232 +1,150 @@
-# Production Semantic Segmentation Framework
+# mySegLib
 
-> **Industry-grade** semantic segmentation framework built on PyTorch and segmentation_models_pytorch. Optimized for multi-GPU training with comprehensive testing, CI/CD, and production deployment.
+Semantic segmentation training, evaluation and inference on PyTorch and [segmentation_models_pytorch](https://github.com/qubvel/segmentation_models.pytorch). Everything is driven by YAML configs, and training scales from one GPU to several with DDP.
 
-[![Tests](https://img.shields.io/badge/tests-141%20passed-success)](tests/)
-[![Coverage](https://img.shields.io/badge/coverage-100%25-success)](tests/)
-[![Python](https://img.shields.io/badge/python-3.8%20%7C%203.9%20%7C%203.10-blue)](https://www.python.org/)
+[![Tests](https://github.com/jakhon37/mySegLib/actions/workflows/tests.yml/badge.svg)](https://github.com/jakhon37/mySegLib/actions/workflows/tests.yml)
+[![Lint](https://github.com/jakhon37/mySegLib/actions/workflows/lint.yml/badge.svg)](https://github.com/jakhon37/mySegLib/actions/workflows/lint.yml)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![Docker](https://img.shields.io/badge/docker-ready-blue)](Dockerfile)
 
-## 🎯 What is This?
+## Features
 
-A **production-ready semantic segmentation framework** for training, evaluating, and deploying segmentation models on any dataset.
+**Models and training**
+- 9 architectures: Unet, Unet++, DeepLabV3, DeepLabV3+, FPN, PSPNet, PAN, Linknet, MAnet
+- Encoders from segmentation_models_pytorch: ResNet, EfficientNet, DenseNet, MobileNet and more
+- 4 losses: focal, Dice, cross-entropy, and combined focal and Dice
+- Multi-GPU training with DDP (NCCL or Gloo), and a DataParallel fallback
+- Mixed precision, gradient accumulation, gradient checkpointing, early stopping
 
-## ⚡ Performance
+**Inference and export**
+- Single-image and batch inference
+- Chunked inference with overlap, for images too large for GPU memory
+- ONNX export
 
-- **40-60% faster** training with optimized data loading
-- **25-35% less** GPU memory usage
-- Multi-GPU support with automatic fallbacks
-- Mixed precision (FP16) training
-- Gradient accumulation for large effective batch sizes
+**Tooling**
+- 143 unit tests, of which 10 need a GPU and skip on CPU
+- GitHub Actions, pre-commit hooks and a Makefile
+- Docker with GPU pass-through
+- TensorBoard and Weights & Biases logging
 
-## ✨ Features
+CI runs on CPU, so it does not exercise the GPU and multi-GPU code paths.
 
-**Models & Training:**
-- 9 architectures: Unet, Unet++, DeepLabV3/V3+, FPN, PSPNet, PAN, Linknet, MAnet
-- 50+ pretrained encoders: ResNet, EfficientNet, DenseNet, MobileNet, etc.
-- 5 loss functions: Focal, Dice, Cross-Entropy, Combined, Tversky
-- Multi-GPU training (DDP) with NCCL/Gloo backends
-- Mixed precision (AMP), gradient checkpointing, early stopping
+## Quick Start
 
-**Production Ready:**
-- 141 comprehensive unit tests (100% passing)
-- Full CI/CD with GitHub Actions
-- Docker support with GPU pass-through
-- TensorBoard and W&B logging
-- ONNX export for inference
+### 1. Install
 
-**Developer Experience:**
-- YAML-driven configuration
-- Automated setup scripts
-- Pre-commit hooks (black, flake8, isort, mypy)
-- Comprehensive documentation
-- Makefile for common tasks
-
-## 🚀 Quick Start
-
-### 1. Installation
+You need Python 3.9+ and PyTorch 2.3+.
 
 ```bash
-# Automated setup (recommended)
-bash scripts/setup_dev.sh
-
-# Or manual setup
-git clone <repository>
+git clone https://github.com/jakhon37/mySegLib.git
 cd mySegLib
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Prepare Your Dataset
+Or run the automated setup with `bash scripts/setup_dev.sh`.
 
-Organize your data in this structure:
+### 2. Prepare your dataset
+
 ```
-YOUR_DATASET/
-├── train/
-│   ├── images/  # Input images
-│   └── masks/   # Ground truth masks (class indices or RGB)
-├── val/
-│   ├── images/
-│   └── masks/
-└── test/        # Optional
-    ├── images/
-    └── masks/
+YOUR_DATA/
+└── dataset/
+    ├── train/
+    │   ├── images/
+    │   └── masks/    # Masks hold class indices
+    ├── val/
+    │   ├── images/
+    │   └── masks/
+    └── test/         # Optional
+        ├── images/
+        └── masks/
 ```
+
+Images and masks are paired by sorted filename.
 
 ### 3. Configure
 
-Edit `configs/default.yaml`:
+Edit `configs/default.yaml`, or set `DATA_DIR` instead of `base_dir`:
+
 ```yaml
 data:
-  base_dir: "/path/to/YOUR_DATASET"
-  image_size: 224      # Adjust to your needs
-  num_classes: 2       # Number of segmentation classes
+  base_dir: "/path/to/YOUR_DATA"
+  dataset_dir: "dataset"
+  image_size: 224
+  num_classes: 2
 
 model:
   architecture: "Unet"  # Unet, UnetPlusPlus, DeepLabV3Plus, etc.
-  encoder: "resnet34"   # resnet18/34/50, efficientnet-b0/b4, etc.
+  encoder: "resnet18"   # resnet50, efficientnet-b4, etc.
 ```
 
 ### 4. Train
 
 ```bash
-# Single GPU (optimized by default!)
+# Single GPU
 python scripts/train.py --config configs/default.yaml
 
-# Multi-GPU (4 GPUs)
+# Multi-GPU
 torchrun --nproc_per_node=4 scripts/train.py --config configs/default.yaml
-# Docker (with GPU)
+
+# Docker
 docker-compose up -d training
 ```
 
-### 5. Inference
+### 5. Run inference
 
 ```bash
 # Single image
 python scripts/inference.py --checkpoint checkpoints/best_model.pth \
   --input image.jpg --output prediction.png
 
-# Batch inference
+# Directory of images
 python scripts/inference.py --checkpoint checkpoints/best_model.pth \
   --input ./images/ --output ./predictions/
+
+# Large image, in overlapping chunks
+python scripts/inference.py --checkpoint checkpoints/best_model.pth \
+  --input large.tif --output mask.tif --chunk
 ```
 
-## 📊 Use Cases
-
-This framework has been used for:
-- **Medical Imaging:** Cell segmentation, tissue classification, organ delineation
-- **Remote Sensing:** Land cover classification, building detection, crop monitoring
-- **Autonomous Driving:** Road segmentation, lane detection, obstacle identification
-
-**Easily adaptable to any binary or multi-class segmentation task!**
-
-## 📁 Project Structure
+## Project Structure
 
 ```
-├── configs/              # YAML configurations
-│   └── default.yaml     # Optimized default config
-├── src/                  # Framework source code
-│   ├── data/            # Dataset & data loading
-│   ├── models/          # Model architectures
-│   ├── losses/          # Loss functions
-│   └── utils/           # Utilities (metrics, logging, profiling)
-├── scripts/              # Training & inference scripts
-│   ├── train.py         # Main training script
-│   ├── evaluate.py      # Evaluation script
-│   └── inference.py     # Inference script
-├── tests/                # Comprehensive test suite (141 tests)
-│   └── unit/            # Unit tests for all modules
-├── docs/                 # Documentation
-│   ├── QUICKSTART_OPTIMIZED.md
-│   ├── OPTIMIZATION_FEATURES.md
-│   ├── ARCHITECTURE.md
-│   └── CONTRIBUTING.md
-├── Dockerfile            # Multi-stage Docker build
-├── docker-compose.yml    # Docker orchestration
-├── Makefile              # Development commands
-└── README.md             # This file
+├── configs/      YAML configurations
+├── src/
+│   ├── data/     Dataset and data loading
+│   ├── models/   Model creation
+│   ├── losses/   Loss functions
+│   └── utils/    Metrics, logging, checkpoints, profiling
+├── scripts/      Training, evaluation, inference and export
+├── tests/unit/   Unit tests
+└── docs/         Documentation
 ```
 
-## 🛠️ Development
+## Development
 
-### Run Tests
 ```bash
-# All tests
-make test
-
-# With coverage
-make test-cov
-
-# Specific test
-pytest tests/unit/test_models.py -v
+make install-dev   # Development dependencies and pre-commit hooks
+make test          # Run the tests
+make test-cov      # Run the tests with a coverage report
+make format        # Format with black and isort
+make lint          # Run the linters
+make ci            # Run the full local pipeline
 ```
 
-### Code Quality
-```bash
-# Format code
-make format
+## Documentation
 
-# Run linters
-make lint
+- [Quick Start](docs/QUICKSTART_OPTIMIZED.md)
+- [Optimization Features](docs/OPTIMIZATION_FEATURES.md)
+- [Multi-GPU Training](docs/MULTI_GPU_TRAINING.md)
+- [Training Scripts](docs/TRAINING_SCRIPTS_COMPARISON.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [CI/CD](docs/CI_CD.md)
+- [Contributing](docs/CONTRIBUTING.md)
 
-# Type checking
-make typecheck
+## License
 
-# Full CI check
-make ci
-```
+MIT, see [LICENSE](LICENSE).
 
-### Docker Development
-```bash
-# Build and run
-docker-compose up -d
+## Acknowledgments
 
-# Access training container
-docker-compose exec training bash
-
-# View TensorBoard
-docker-compose up -d tensorboard
-# Open http://localhost:6006
-```
-
-## 📚 Documentation
-
-- **[Quick Start](docs/QUICKSTART_OPTIMIZED.md)** - Get started in 5 minutes
-- **[Optimization Features](docs/OPTIMIZATION_FEATURES.md)** - Performance guide
-- **[Architecture](docs/ARCHITECTURE.md)** - System design
-- **[Contributing](docs/CONTRIBUTING.md)** - How to contribute
-- **[CI/CD](docs/CI_CD.md)** - Continuous integration
-- **[Multi-GPU Training](docs/MULTI_GPU_TRAINING.md)** - Advanced GPU setup
-
-## 🤝 Contributing
-
-Contributions are welcome! Please see [CONTRIBUTING.md](docs/CONTRIBUTING.md) for guidelines.
-
-**Key areas for contribution:**
-- New model architectures
-- Additional loss functions
-- Dataset adapters for popular formats
-- Performance optimizations
-- Documentation improvements
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) for details.
-
-## 🙏 Acknowledgments
-
-Built with:
-- [PyTorch](https://pytorch.org/) - Deep learning framework
-- [segmentation_models_pytorch](https://github.com/qubvel/segmentation_models.pytorch) - Model architectures
-- [Albumentations](https://albumentations.ai/) - Data augmentation
-
-## 📞 Support
-
-- **Issues:** [GitHub Issues](../../issues)
-- **Documentation:** [docs/](docs/)
-- **Discussions:** [GitHub Discussions](../../discussions)
-
----
-
-**Made with ❤️ for the computer vision community**
+Built with [PyTorch](https://pytorch.org/), [segmentation_models_pytorch](https://github.com/qubvel/segmentation_models.pytorch) and [Albumentations](https://albumentations.ai/).

@@ -45,7 +45,7 @@ WORKDIR /app
 FROM base AS builder
 
 # Copy dependency files
-COPY docs/requirements.txt requirements-dev.txt pyproject.toml ./
+COPY requirements.txt requirements-dev.txt pyproject.toml ./
 
 # Install PyTorch with CUDA support
 RUN pip install --no-cache-dir \
@@ -144,5 +144,5 @@ RUN bandit -r src/ -f json -o bandit-report.json || true
 
 # Labels
 LABEL maintainer="Segmentation Framework Team"
-LABEL version="2.0.0"
-LABEL description="Industry-grade semantic segmentation framework with CUDA support"
+LABEL version="0.1.0"
+LABEL description="Semantic segmentation framework with CUDA support"

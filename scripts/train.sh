@@ -1,19 +1,18 @@
 #!/bin/bash
 # =============================================================================
-# Semantic Segmentation Training Script - Optimized for PCIe Topology
+# mySegLib Training Script
 # =============================================================================
 # Usage:
-#   ./train.sh                    # 4 GPU training with DDP (optimized)
-#   ./train.sh --gpus 2           # 2 GPU training with DDP
-#   ./train.sh --gpus 1           # Single GPU training
+#   ./train.sh                    # Single GPU training
+#   ./train.sh --gpus 4           # 4 GPU training with DDP
 #   ./train.sh --mode dp          # Force DataParallel mode (legacy fallback)
 #   ./train.sh --mode ddp         # Force DDP mode (default)
 #   ./train.sh --resume checkpoint.pth  # Resume training
 #
-# NOTE: Now supports 4 GPUs with optimizations:
+# Multi-GPU runs use:
 #       - Mixed precision (FP16)
 #       - Gradient accumulation
-#       - NCCL P2P disabled (for GPUs without peer-to-peer support)
+#       - NCCL P2P disabled, for GPUs without peer-to-peer support
 # =============================================================================
 
 set -e  # Exit on error
@@ -22,7 +21,6 @@ set -e  # Exit on error
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 CONFIG_FILE="${PROJECT_DIR}/configs/default.yaml"
-CONDA_ENV="base"
 
 # Default values
 NUM_GPUS=1
@@ -30,8 +28,7 @@ RESUME_CHECKPOINT=""
 MASTER_PORT=12355
 TRAIN_MODE=""  # auto, dp, ddp
 
-# NCCL settings optimized for GPUs without P2P/NVLink
-# NCCL_PROTO=LL avoids illegal memory access errors with 3 or more GPUs
+# NCCL settings for GPUs without P2P or NVLink
 export NCCL_P2P_DISABLE=1  # No GPU peer-to-peer
 export NCCL_IB_DISABLE=1   # No InfiniBand
 export NCCL_PROTO=LL       # Low-latency protocol (required for 3+ GPUs)
@@ -65,7 +62,7 @@ while [[ $# -gt 0 ]]; do
             echo "Usage: $0 [options]"
             echo ""
             echo "Options:"
-            echo "  --gpus, -g NUM      Number of GPUs (default: 4)"
+            echo "  --gpus, -g NUM      Number of GPUs (default: 1)"
             echo "  --config, -c PATH   Config file path (default: configs/default.yaml)"
             echo "  --resume, -r PATH   Checkpoint to resume from"
             echo "  --port, -p PORT     Master port for DDP (default: 12355)"
@@ -74,7 +71,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --help, -h          Show this help message"
             echo ""
             echo "Examples:"
-            echo "  $0                           # 4 GPUs with DDP (optimized)"
+            echo "  $0                           # Single GPU"
             echo "  $0 --gpus 2                  # 2 GPUs with DDP"
             echo "  $0 --config configs/large_model.yaml  # Use large model config"
             echo ""
@@ -88,13 +85,14 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Activate conda environment
 echo "=============================================="
-echo "Semantic Segmentation Training"
+echo "mySegLib Training"
 echo "=============================================="
-echo "Activating conda environment: ${CONDA_ENV}"
-# source "$(conda info --base)/etc/profile.d/conda.sh"
-# conda activate ${CONDA_ENV}
+# Activate a conda environment if CONDA_ENV is set
+if [ -n "${CONDA_ENV:-}" ]; then
+    source "$(conda info --base)/etc/profile.d/conda.sh"
+    conda activate "${CONDA_ENV}"
+fi
 
 # Show GPU info
 echo ""
@@ -132,7 +130,6 @@ elif [ "${NUM_GPUS}" -eq 1 ]; then
 else
     # DDP mode - multi-process with NCCL (optimized)
     echo "DDP training with ${NUM_GPUS} GPUs"
-    echo "Expected speedup: 2.5-3.2x (vs single GPU)"
     echo ""
     CMD="torchrun --nproc_per_node=${NUM_GPUS} --master_port=${MASTER_PORT} scripts/train.py --config ${CONFIG_FILE}"
 fi

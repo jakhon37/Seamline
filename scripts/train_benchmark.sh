@@ -7,7 +7,6 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 CONFIG_FILE="${PROJECT_DIR}/configs/default.yaml"
-CONDA_ENV="base"
 BENCHMARK_MODE="all"
 NUM_GPUS=""
 NUM_EPOCHS=3
@@ -15,7 +14,7 @@ MASTER_PORT=12355
 
 # NCCL settings for local peer-to-peer
 export NCCL_P2P_DISABLE=0
-export NCCL_P2P_LEVEL=LOC  # Critical: forces local P2P only
+export NCCL_P2P_LEVEL=LOC  # Forces local P2P only
 export NCCL_SHM_DISABLE=0
 export NCCL_IB_DISABLE=1
 export NCCL_DEBUG=WARN
@@ -31,8 +30,11 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-source "$(conda info --base)/etc/profile.d/conda.sh"
-conda activate ${CONDA_ENV}
+# Activate a conda environment if CONDA_ENV is set
+if [ -n "${CONDA_ENV:-}" ]; then
+    source "$(conda info --base)/etc/profile.d/conda.sh"
+    conda activate "${CONDA_ENV}"
+fi
 
 RESULTS_DIR="${PROJECT_DIR}/benchmark_results"
 mkdir -p "${RESULTS_DIR}"

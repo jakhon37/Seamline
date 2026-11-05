@@ -3,7 +3,7 @@
 
 cat << 'EOF'
 ╔══════════════════════════════════════════════════════════════╗
-║   Semantic Segmentation - Multi-GPU Training Helper         ║
+║             mySegLib - Multi-GPU Training Helper             ║
 ║              Optimized for PCIe Topology                     ║
 ╚══════════════════════════════════════════════════════════════╝
 
@@ -12,10 +12,8 @@ Available Training Commands:
 
 Quick Start (Recommended):
   bash scripts/train_small.sh        - Small models (ResNet18/34)
-                                       Expected: 3.0-3.2x speedup
   
   bash scripts/train_large.sh        - Large models (ResNet50+)
-                                       Expected: 2.5-2.8x speedup
 
 Advanced Usage:
   bash scripts/train_4gpu.sh         - Use with custom config
@@ -42,7 +40,7 @@ Available Configurations:
 
 Documentation:
   docs/MULTI_GPU_TRAINING.md   - Full training guide
-  OPTIMIZATION_SUMMARY.md       - Implementation details
+  docs/OPTIMIZATION_FEATURES.md - Configuration options
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -60,13 +58,11 @@ nvidia-smi --query-gpu=index,name,memory.total,utilization.gpu --format=csv,nohe
   awk -F', ' '{printf "  GPU %s: %s (%s, %s utilization)\n", $1, $2, $3, $4}'
 
 echo ""
-echo ""
-
 cat << 'EOF'
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Optimizations Active:
-  ✓ Mixed Precision (FP16)      - 40-50% speedup
+  ✓ Mixed Precision (FP16)
   ✓ Gradient Accumulation       - Reduces sync frequency
   ✓ NCCL P2P Disabled           - For GPUs without P2P
   ✓ PCIe Optimized DataLoader   - num_workers=2
