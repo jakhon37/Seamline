@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
-    {name = "Segmentation Framework Team"}
+    {name = "Jakhongir Nodirov"}
 ]
 keywords = ["segmentation", "deep-learning", "computer-vision", "semantic-segmentation", "pytorch"]
 classifiers = [

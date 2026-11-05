@@ -143,6 +143,6 @@ RUN black --check src/ tests/ scripts/ && \
 RUN bandit -r src/ -f json -o bandit-report.json || true
 
 # Labels
-LABEL maintainer="Segmentation Framework Team"
+LABEL maintainer="Jakhongir Nodirov"
 LABEL version="0.1.0"
 LABEL description="Semantic segmentation framework with CUDA support"

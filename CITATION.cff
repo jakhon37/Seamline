@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "mySegLib: Semantic Segmentation Framework"
+type: software
+authors:
+  - family-names: Nodirov
+    given-names: Jakhongir
+version: 0.1.0
+date-released: 2026-11-05
+repository-code: "https://github.com/jakhon37/mySegLib"
+license: MIT
