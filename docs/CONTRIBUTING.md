@@ -22,7 +22,7 @@ This project and everyone participating in it is governed by our [Code of Conduc
 
 ### Prerequisites
 
-- Python 3.8 or higher
+- Python 3.10 or higher
 - CUDA 12.1+ (for GPU support)
 - Git
 - Basic understanding of PyTorch and deep learning

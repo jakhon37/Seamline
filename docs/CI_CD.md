@@ -31,7 +31,7 @@ This project uses industry-standard tools and practices for maintaining code qua
 Runs on every push and pull request to main/master/develop branches.
 
 **Features:**
-- Tests on Python 3.8, 3.9, and 3.10
+- Tests on Python 3.10, 3.11, and 3.12
 - Parallel testing across versions
 - Unit tests with coverage reporting
 - Integration tests (separate job)
@@ -109,7 +109,7 @@ black src/ tests/ scripts/
 
 **Configuration:** `pyproject.toml` → `[tool.black]`
 - Line length: 100
-- Target: Python 3.8, 3.9, 3.10
+- Target: Python 3.10, 3.11, 3.12
 
 ### isort (Import Sorter)
 

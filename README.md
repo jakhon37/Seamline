@@ -26,13 +26,13 @@ Semantic segmentation training, evaluation and inference on PyTorch and [segment
 - Docker with GPU pass-through
 - TensorBoard and Weights & Biases logging
 
-CI runs on CPU, so it does not exercise the GPU and multi-GPU code paths.
+CI also runs the full pipeline on synthetic data: train, resume, evaluate, inference and ONNX export. It runs on CPU, so it does not exercise the GPU and multi-GPU code paths.
 
 ## Quick Start
 
 ### 1. Install
 
-You need Python 3.9+ and PyTorch 2.3+.
+You need Python 3.10+ and PyTorch 2.3+.
 
 ```bash
 git clone https://github.com/jakhon37/mySegLib.git

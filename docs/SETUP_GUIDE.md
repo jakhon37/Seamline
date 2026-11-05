@@ -49,7 +49,7 @@ make lint
 
 1. **tests.yml** - Automated testing
    - Runs on push/PR to main branches
-   - Tests Python 3.8, 3.9, 3.10
+   - Tests Python 3.10, 3.11, 3.12
    - Generates coverage reports
    - Uploads to Codecov
 
@@ -233,7 +233,7 @@ black src/ tests/ scripts/
 
 **Settings:**
 - Line length: 100
-- Target: Python 3.8+
+- Target: Python 3.10+
 - String quotes: Double
 
 ### isort (Import Sorter)
