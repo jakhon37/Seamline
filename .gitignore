@@ -41,3 +41,10 @@ benchmark_results/
 
 # OS
 .DS_Store
+
+.tools/
+.venv/
+node_modules/
+app/out/
+app/dist/
+app/test-results/
