@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import onnxruntime as ort
 import pytest
 import yaml
 from PIL import Image
@@ -122,4 +123,7 @@ def test_full_pipeline(workspace):
         "--output",
         str(onnx_path),
     )
-    assert onnx_path.stat().st_size > 0
+    session = ort.InferenceSession(str(onnx_path))
+    input_name = session.get_inputs()[0].name
+    output = session.run(None, {input_name: np.zeros((2, 3, 64, 64), dtype=np.float32)})[0]
+    assert output.shape == (2, 2, 64, 64)

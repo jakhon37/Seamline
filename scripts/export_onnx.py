@@ -6,6 +6,7 @@ Usage:
     python export_onnx.py --checkpoint best_model.pth --output model.onnx
 """
 import argparse
+import inspect
 import os
 import sys
 
@@ -54,6 +55,12 @@ def export_to_onnx(
     # Export
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
 
+    # Newer PyTorch defaults to an exporter that needs onnxscript and treats
+    # opset_version and dynamic_axes differently, so keep the TorchScript exporter.
+    export_kwargs = {}
+    if "dynamo" in inspect.signature(torch.onnx.export).parameters:
+        export_kwargs["dynamo"] = False
+
     with torch.no_grad():
         torch.onnx.export(
             model,
@@ -65,6 +72,7 @@ def export_to_onnx(
             input_names=["input"],
             output_names=["output"],
             dynamic_axes=dynamic_axes,
+            **export_kwargs,
         )
 
     # Verify export
