@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from engine.studio import is_val, list_images, prepare, rasterize
+from engine.studio import is_val, list_images, prepare, rasterize, shapes_from_labels
 
 
 def make_project(root, images, classes=("a", "b")):
@@ -26,6 +26,18 @@ def test_rasterize_uses_class_index_and_later_shape_wins():
     shapes = [box("a", 0, 0, 9, 9), box("b", 5, 5, 9, 9)]
     mask = rasterize(shapes, (10, 10), {"a": 1, "b": 2})
     assert mask[0, 0] == 1 and mask[6, 6] == 2
+
+
+def test_rasterize_accepts_a_rectangle_drawn_backwards():
+    mask = rasterize([box("a", 9, 9, 0, 0)], (10, 10), {"a": 1})
+    assert mask[5, 5] == 1
+
+
+def test_prepare_names_a_label_file_it_cannot_read(tmp_path):
+    make_project(tmp_path, [("broken", (32, 32), None)])
+    (tmp_path / "broken.json").write_text('{"shapes": [')
+    with pytest.raises(SystemExit, match="broken.json"):
+        prepare(tmp_path, 0.2, 1024)
 
 
 def test_prepare_pairs_exact_names_and_counts_unlabelled(tmp_path):
@@ -77,3 +89,31 @@ def test_list_images_ignores_other_files(tmp_path):
     (tmp_path / "a.json").write_text("{}")
     Image.new("RGB", (4, 4)).save(tmp_path / "a.png")
     assert [p.name for p in list_images(tmp_path)] == ["a.png"]
+
+
+def test_shape_score_is_mean_confidence_inside_each_shape():
+    pytest.importorskip("cv2")
+    labels = np.zeros((60, 100), dtype=np.uint8)
+    labels[10:30, 10:30] = 1
+    labels[10:30, 60:80] = 2
+    confidence = np.full((60, 100), 255, dtype=np.uint8)
+    confidence[10:30, 10:30] = 128
+    confidence[10:30, 60:80] = 230
+    shapes = shapes_from_labels(labels, confidence, [{"name": "a"}, {"name": "b"}], 25)
+    assert [s["label"] for s in shapes] == ["a", "b"]
+    assert shapes[0]["score"] == pytest.approx(128 / 255, abs=0.01)
+    assert shapes[1]["score"] == pytest.approx(230 / 255, abs=0.01)
+    assert all(s["flags"] == {"ai": True} for s in shapes)
+
+
+def test_shapes_below_min_area_are_dropped():
+    pytest.importorskip("cv2")
+    labels = np.zeros((20, 20), dtype=np.uint8)
+    labels[2:5, 2:5] = 1
+    confidence = np.full((20, 20), 200, dtype=np.uint8)
+    assert shapes_from_labels(labels, confidence, [{"name": "a"}], 25) == []
+
+
+def test_extra_shape_keys_do_not_change_masks():
+    shape = {**box("a", 0, 0, 9, 9), "score": 0.5}
+    assert rasterize([shape], (10, 10), {"a": 1})[5, 5] == 1

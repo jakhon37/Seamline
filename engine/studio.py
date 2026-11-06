@@ -3,7 +3,7 @@
 
 prepare: project folder with LabelMe JSON files -> train/val images and index masks
 train:   prepare, write a run config and call scripts/train.py
-predict: run a trained model on images and write its polygons as LabelMe JSON
+predict: run a trained model on images and print its polygons as LabelMe shapes
 """
 import argparse
 import copy
@@ -34,6 +34,15 @@ def list_images(root: Path) -> list:
     return sorted(p for p in root.iterdir() if p.suffix.lower() in IMAGE_EXTS)
 
 
+def read_labels(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text())
+    except ValueError as error:
+        raise SystemExit(f"{path.name} can't be read: {error}")
+
+
 def rasterize(shapes: list, size: tuple, class_ids: dict) -> np.ndarray:
     """Draw shapes into an index mask, in file order, so later shapes win."""
     mask = Image.new("L", size, 0)
@@ -44,7 +53,9 @@ def rasterize(shapes: list, size: tuple, class_ids: dict) -> np.ndarray:
         if class_id is None:
             continue
         if shape.get("shape_type") == "rectangle" and len(points) == 2:
-            draw.rectangle(points, fill=class_id)
+            # Rectangles can be drawn in any direction, and PIL needs the top left first
+            (x0, y0), (x1, y1) = points
+            draw.rectangle((min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)), fill=class_id)
         elif len(points) >= 3:
             draw.polygon(points, fill=class_id)
     return np.array(mask)
@@ -68,8 +79,7 @@ def prepare(root: Path, val_split: float, tile: int) -> dict:
     pixels = np.zeros(len(class_ids) + 1, dtype=np.int64)
     unknown = set()
     for path in list_images(root):
-        sidecar = path.with_suffix(".json")
-        doc = json.loads(sidecar.read_text()) if sidecar.exists() else {}
+        doc = read_labels(path.with_suffix(".json"))
         # AI proposals only count once a person has accepted them
         shapes = [s for s in doc.get("shapes", []) if not s.get("flags", {}).get("ai")]
         if not shapes:
@@ -192,28 +202,67 @@ def train(root: Path, options: dict, run: str = None, prepared: bool = False) ->
     return code
 
 
-def predict_labels(model, transform, image: np.ndarray, tile: int, device: str) -> np.ndarray:
-    """Class index per pixel. Big images go tile by tile, the way the model was trained."""
+def predict_labels(model, transform, image: np.ndarray, tile: int, device: str) -> tuple:
+    """Class index and confidence (0-255) per pixel. Big images go tile by tile, as in training."""
     import cv2
     import torch
 
     height, width = image.shape[:2]
     labels = np.zeros((height, width), dtype=np.uint8)
+    confidence = np.zeros((height, width), dtype=np.uint8)
     step = tile if max(height, width) > tile else max(height, width)
     with torch.inference_mode():
         for top in range(0, height, step):
             for left in range(0, width, step):
                 piece = image[top : top + step, left : left + step]
                 batch = transform(image=piece)["image"].unsqueeze(0).to(device)
-                out = model(batch).argmax(1)[0].cpu().numpy().astype(np.uint8)
+                best, index = model(batch).softmax(1).max(1)
+                size = (piece.shape[1], piece.shape[0])
                 labels[top : top + step, left : left + step] = cv2.resize(
-                    out, (piece.shape[1], piece.shape[0]), interpolation=cv2.INTER_NEAREST
+                    index[0].cpu().numpy().astype(np.uint8), size, interpolation=cv2.INTER_NEAREST
                 )
-    return labels
+                confidence[top : top + step, left : left + step] = cv2.resize(
+                    (best[0].cpu().numpy() * 255).astype(np.uint8), size, interpolation=cv2.INTER_LINEAR
+                )
+    return labels, confidence
 
 
-def predict(root: Path, run: str, images: list, min_area: int) -> dict:
+def shapes_from_labels(labels: np.ndarray, confidence: np.ndarray, classes: list, min_area: int) -> list:
+    """Polygons for each class. Score is the mean confidence inside the shape: use it to rank, not as a probability."""
     import cv2
+
+    shapes = []
+    for index, cls in enumerate(classes, start=1):
+        contours, _ = cv2.findContours(
+            (labels == index).astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        )
+        for contour in contours:
+            if cv2.contourArea(contour) < min_area:
+                continue
+            epsilon = max(1.0, 0.002 * cv2.arcLength(contour, True))
+            points = cv2.approxPolyDP(contour, epsilon, True)[:, 0].tolist()
+            if len(points) < 3:
+                continue
+            x, y, w, h = cv2.boundingRect(contour)
+            inside = np.zeros((h, w), dtype=np.uint8)
+            cv2.drawContours(inside, [contour], -1, 1, -1, offset=(-x, -y))
+            score = confidence[y : y + h, x : x + w][inside > 0].mean() / 255
+            shapes.append(
+                {
+                    "label": cls["name"],
+                    "points": points,
+                    "shape_type": "polygon",
+                    "group_id": None,
+                    "description": "",
+                    "flags": {"ai": True},
+                    "score": round(float(score), 3),
+                }
+            )
+    return shapes
+
+
+def predict(root: Path, run: str, images: list, min_area: int):
+    """Yield the device once, then one result per image. A bad image doesn't stop the rest."""
     import torch
 
     from src.data.transforms import get_val_transforms
@@ -231,6 +280,7 @@ def predict(root: Path, run: str, images: list, min_area: int) -> dict:
         encoder=model_cfg["encoder"],
         encoder_weights=None,
         num_classes=model_cfg["num_classes"],
+        activation=None,
     )
     state = torch.load(checkpoints[0], map_location=device, weights_only=True)
     model.load_state_dict(state)
@@ -241,33 +291,18 @@ def predict(root: Path, run: str, images: list, min_area: int) -> dict:
     transform = get_val_transforms(size, size, **normalize)
     tile = json.loads((run_dir / "options.json").read_text()).get("tile", 1024)
     classes = load_project(root)["classes"]
-    results = {}
+    yield {"device": device}
     for name in images:
-        image = np.array(ImageOps.exif_transpose(Image.open(root / name)).convert("RGB"))
-        labels = predict_labels(model, transform, image, tile, device)
-        shapes = []
-        for index, cls in enumerate(classes, start=1):
-            contours, _ = cv2.findContours(
-                (labels == index).astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-            )
-            for contour in contours:
-                if cv2.contourArea(contour) < min_area:
-                    continue
-                epsilon = max(1.0, 0.002 * cv2.arcLength(contour, True))
-                points = cv2.approxPolyDP(contour, epsilon, True)[:, 0].tolist()
-                if len(points) >= 3:
-                    shapes.append(
-                        {
-                            "label": cls["name"],
-                            "points": points,
-                            "shape_type": "polygon",
-                            "group_id": None,
-                            "description": "",
-                            "flags": {"ai": True},
-                        }
-                    )
-        results[name] = shapes
-    return {"device": device, "results": results}
+        try:
+            image = np.array(ImageOps.exif_transpose(Image.open(root / name)).convert("RGB"))
+            labels, confidence = predict_labels(model, transform, image, tile, device)
+            yield {
+                "name": name,
+                "shapes": shapes_from_labels(labels, confidence, classes, min_area),
+                "size": [image.shape[1], image.shape[0]],
+            }
+        except Exception as error:
+            yield {"name": name, "error": str(error)}
 
 
 def main():
@@ -285,7 +320,7 @@ def main():
     p = sub.add_parser("predict")
     p.add_argument("project", type=Path)
     p.add_argument("--run", required=True)
-    p.add_argument("--images", nargs="+", required=True)
+    p.add_argument("--images", nargs="+", help="Image names; without it, a JSON list on stdin")
     p.add_argument("--min-area", type=int, default=25)
     args = parser.parse_args()
 
@@ -294,7 +329,9 @@ def main():
     elif args.command == "train":
         sys.exit(train(args.project, json.loads(args.options), args.run, args.prepared))
     else:
-        print(json.dumps(predict(args.project, args.run, args.images, args.min_area)))
+        images = args.images or json.load(sys.stdin)
+        for result in predict(args.project, args.run, images, args.min_area):
+            print(json.dumps(result), flush=True)
 
 
 if __name__ == "__main__":
