@@ -19,7 +19,12 @@ def make_project(root, images, classes=("a", "b")):
 
 
 def box(label, x0, y0, x1, y1, **flags):
-    return {"label": label, "shape_type": "rectangle", "points": [[x0, y0], [x1, y1]], "flags": flags}
+    return {
+        "label": label,
+        "shape_type": "rectangle",
+        "points": [[x0, y0], [x1, y1]],
+        "flags": flags,
+    }
 
 
 def test_rasterize_uses_class_index_and_later_shape_wins():
@@ -71,7 +76,13 @@ def test_prepare_always_fills_both_splits(tmp_path, val_split):
 
 
 def test_big_image_tiles_keep_alignment_and_skip_empty(tmp_path):
-    make_project(tmp_path, [("big", (400, 200), [box("a", 250, 50, 350, 150)]), ("b2", (32, 32), [box("a", 0, 0, 9, 9)])])
+    make_project(
+        tmp_path,
+        [
+            ("big", (400, 200), [box("a", 250, 50, 350, 150)]),
+            ("b2", (32, 32), [box("a", 0, 0, 9, 9)]),
+        ],
+    )
     prepare(tmp_path, 0.5, 100)
     files = list((tmp_path / ".myseg" / "dataset").glob("*/masks/big__*.png"))
     assert files and all(np.array(Image.open(f)).any() for f in files)
