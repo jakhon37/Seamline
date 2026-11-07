@@ -53,3 +53,8 @@ https://github.com/tensorflow/tensorboard/blob/master/LICENSE
 Copyright (c) ONNX Project Contributors
 Licensed under the Apache License 2.0
 https://github.com/onnx/onnx/blob/main/LICENSE
+
+## Inter
+Copyright 2016 The Inter Project Authors
+Licensed under the SIL Open Font License 1.1
+https://github.com/rsms/inter/blob/master/LICENSE.txt

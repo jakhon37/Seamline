@@ -38,6 +38,8 @@ benchmark_results/
 *.png
 *.jpg
 *.jpeg
+!app/resources/*.png
+!docs/brand/*.png
 
 # OS
 .DS_Store
