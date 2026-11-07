@@ -53,3 +53,14 @@ https://github.com/tensorflow/tensorboard/blob/master/LICENSE
 Copyright (c) ONNX Project Contributors
 Licensed under the Apache License 2.0
 https://github.com/onnx/onnx/blob/main/LICENSE
+
+## Inter
+Copyright 2016 The Inter Project Authors
+Licensed under the SIL Open Font License 1.1
+https://github.com/rsms/inter/blob/master/LICENSE.txt
+
+## VisA dataset
+The photos in `docs/media` are from VisA, by Yang Zou, Jongheon Jeong, Latha Pemula,
+Dongqing Zhang and Onkar Dabeer. They are shown cropped, with labels drawn on them.
+Licensed under Creative Commons Attribution 4.0 International
+https://github.com/amazon-science/spot-diff

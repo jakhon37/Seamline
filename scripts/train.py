@@ -14,6 +14,7 @@ Usage:
             --config configs/default.yaml
 """
 import argparse
+import json
 import os
 import random
 import sys
@@ -209,6 +210,14 @@ def validate(
     return loss_meter.avg, epoch_metrics
 
 
+def emit_event(path, **event):
+    """Append one JSON event for the desktop app to follow. No-op without --events."""
+    if not path:
+        return
+    with open(path, "a") as f:
+        f.write(json.dumps(event) + "\n")
+
+
 def main(args):
     """Main training function."""
 
@@ -298,7 +307,8 @@ def main(args):
         encoder=model_cfg["encoder"],
         encoder_weights=model_cfg["encoder_weights"],
         num_classes=model_cfg["num_classes"],
-        activation=model_cfg["activation"],
+        # The losses take logits: an activation here would apply softmax twice and floor the loss
+        activation=None,
         gradient_checkpointing=model_cfg.get("gradient_checkpointing", False),
     )
     model = model.to(device)
@@ -459,6 +469,17 @@ def main(args):
                 f"F1={val_metrics['f1']:.4f}, IoU={val_metrics['iou']:.4f}"
             )
             logger.info(f"  {mem_stats_str}")
+            emit_event(
+                args.events,
+                type="epoch",
+                epoch=epoch,
+                epochs=train_cfg["epochs"],
+                train_loss=train_loss,
+                val_loss=val_loss,
+                lr=current_lr,
+                dir=experiment_dir,
+                **val_metrics,
+            )
 
             if metric_logger:
                 metric_logger.log_epoch(epoch, train_loss, val_loss, current_lr, val_metrics)
@@ -512,6 +533,9 @@ def main(args):
         logger.info(f"Training complete. Best Val Loss: {best_loss:.5f}")
         logger.info(f"Final GPU Memory Stats: {memory_tracker.get_formatted_stats()}")
 
+    if is_main_process(rank):
+        emit_event(args.events, type="done", dir=experiment_dir, best_val_loss=best_loss)
+
     # Cleanup
     if distributed:
         cleanup_distributed()
@@ -524,6 +548,10 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--resume", type=str, default=None, help="Path to checkpoint to resume from"
+    )
+
+    parser.add_argument(
+        "--events", type=str, default=None, help="JSONL file for per-epoch progress events"
     )
 
     args = parser.parse_args()

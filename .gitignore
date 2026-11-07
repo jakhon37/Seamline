@@ -38,6 +38,16 @@ benchmark_results/
 *.png
 *.jpg
 *.jpeg
+!app/resources/*.png
+!docs/brand/*.png
+!docs/media/*.png
 
 # OS
 .DS_Store
+
+.tools/
+.venv/
+node_modules/
+app/out/
+app/dist/
+app/test-results/
