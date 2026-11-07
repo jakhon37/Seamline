@@ -91,7 +91,7 @@ You need Node 20+ and Python 3.10+. There's no installer yet, and it's only been
 
 ```bash
 git clone https://github.com/jakhon37/Seamline.git
-cd mySegLib
+cd Seamline
 python -m venv .venv && .venv/bin/pip install -r requirements.txt
 cd app
 npm install
