@@ -13,7 +13,11 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license"></a>
 </p>
 
-![Seamline reviewing a model's proposals on a circuit board: a melted solder joint and a missing sensor](docs/media/hero.webp)
+<picture>
+  <source media="(max-width: 700px)" srcset="docs/media/banner-phone.webp">
+  <source media="(prefers-reduced-motion: reduce)" srcset="docs/media/banner.webp">
+  <img src="docs/media/banner-animated.webp" alt="Images from VisA, MVTec AD and D-Fire: unlabelled on the light side, training charts along the S-shaped channel, and labelled on the dark side, three of them proposed by the model">
+</picture>
 
 Label some images, train, let the model label the rest, review what it proposed, least certain first, and train again on what you accepted. It all stays on your own machines: labels are plain LabelMe files beside your images, and training runs on this computer or on your GPU machine over SSH.
 
@@ -21,6 +25,8 @@ Label some images, train, let the model label the rest, review what it proposed,
 - **Detached remote training.** A run on your GPU machine keeps going if you close the app or lose the connection, and the app picks it back up.
 - **Tile pyramids for large images.** The viewer draws only the tiles on screen, from a pyramid built once with libvips.
 - **mySegLib underneath.** Training goes through the library in this repo, built on PyTorch and segmentation_models_pytorch. It also works on its own, with 9 architectures, multi-GPU DDP, chunked inference and ONNX export.
+
+![Seamline reviewing a model's proposals on a circuit board: a melted solder joint and a missing sensor](docs/media/hero.webp)
 
 ## How it works
 
@@ -114,3 +120,5 @@ Open any folder of images. [`app/README.md`](app/README.md) has the keyboard sho
 MIT, see [LICENSE](LICENSE). Third-party notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 Demo images are from [VisA](https://github.com/amazon-science/spot-diff) (Zou et al., ECCV 2022), used under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) and shown cropped with labels drawn on them.
+
+The banner at the top also shows images from [MVTec AD](https://www.mvtec.com/company/research/datasets/mvtec-ad) (Bergmann et al., CVPR 2019), under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/), and from [D-Fire](https://github.com/gaiasd/DFireDataset) (de Venâncio et al., 2022), released under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). Because it contains MVTec AD images, the banner (`docs/media/banner*.webp`) is shared under CC BY-NC-SA 4.0, not MIT.
