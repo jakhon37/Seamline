@@ -31,7 +31,7 @@ CI also runs the full pipeline on synthetic data: train, resume, evaluate, infer
 You need Python 3.10+ and PyTorch 2.3+.
 
 ```bash
-git clone https://github.com/jakhon37/mySegLib.git
+git clone https://github.com/jakhon37/Seamline.git
 cd mySegLib
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
