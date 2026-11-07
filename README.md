@@ -13,11 +13,17 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license"></a>
 </p>
 
-![Seamline reviewing a model's proposals on a circuit board: a melted solder joint and a missing sensor](docs/media/hero.webp)
+<picture>
+  <source media="(max-width: 700px)" srcset="docs/media/banner-phone.webp">
+  <source media="(prefers-reduced-motion: reduce)" srcset="docs/media/banner.webp">
+  <img src="docs/media/banner-animated.webp" alt="Images from VisA, MVTec AD and D-Fire: unlabelled on the light side, training charts along the S-shaped channel, and labelled on the dark side, three of them proposed by the model">
+</picture>
 
 Label some images, train, let the model label the rest, then review what it proposed, least certain first. Nothing is uploaded: labels stay as plain LabelMe files beside your images, and training runs on this computer or on your own GPU machine over SSH. Seamline is built on mySegLib, the library in this repo.
 
 **Running it on real circuit-board photos exposed two silent bugs in the training code. One of them meant the model found 2 of 55 real defects instead of 24.** [See the results.](#tested-on-real-images)
+
+![Seamline reviewing a model's proposals on a circuit board: a melted solder joint and a missing sensor](docs/media/hero.webp)
 
 ## How it works
 
@@ -129,3 +135,5 @@ Seamline trains through mySegLib, which also works on its own from YAML configs 
 MIT, see [LICENSE](LICENSE). Third-party notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 Demo images are from [VisA](https://github.com/amazon-science/spot-diff) (Zou et al., ECCV 2022), used under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) and shown cropped with labels drawn on them.
+
+The banner at the top also shows images from [MVTec AD](https://www.mvtec.com/company/research/datasets/mvtec-ad) (Bergmann et al., CVPR 2019), under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/), and from [D-Fire](https://github.com/gaiasd/DFireDataset) (de Venâncio et al., 2022), released under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/). Because it contains MVTec AD images, the banner (`docs/media/banner*.webp`) is shared under CC BY-NC-SA 4.0, not MIT.

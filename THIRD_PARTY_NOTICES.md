@@ -60,7 +60,22 @@ Licensed under the SIL Open Font License 1.1
 https://github.com/rsms/inter/blob/master/LICENSE.txt
 
 ## VisA dataset
-The photos in `docs/media` are from VisA, by Yang Zou, Jongheon Jeong, Latha Pemula,
+The photos in `docs/media` are from VisA, apart from the MVTec AD and D-Fire photos in the
+banner images below. VisA is by Yang Zou, Jongheon Jeong, Latha Pemula,
 Dongqing Zhang and Onkar Dabeer. They are shown cropped, with labels drawn on them.
 Licensed under Creative Commons Attribution 4.0 International
 https://github.com/amazon-science/spot-diff
+
+## MVTec AD dataset
+The banner images (`docs/media/banner.webp`, `banner-animated.webp` and `banner-phone.webp`) include
+photos and defect masks from MVTec AD, by MVTec Software GmbH (Paul Bergmann, Kilian Batzner,
+Michael Fauser, David Sattlegger and Carsten Steger). They are shown cropped, in greys on one side,
+with labels drawn on them. Licensed under Creative Commons Attribution-NonCommercial-ShareAlike 4.0
+International, so the banner images are shared under the same license, not MIT
+https://www.mvtec.com/company/research/datasets/mvtec-ad
+
+## D-Fire dataset
+The banner images also include photos and boxes from D-Fire, by Pedro Vinícius Almeida Borges de
+Venâncio, Adriano Chaves Lisboa and Adriano Vilela Barbosa. None of its images from third-party
+public datasets are used. Released under Creative Commons Zero v1.0 Universal
+https://github.com/gaiasd/DFireDataset
