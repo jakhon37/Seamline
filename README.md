@@ -66,42 +66,24 @@ Seamline is an Electron app: a React window, a Node main process, and a Python e
 - **Training goes through mySegLib.** The engine turns LabelMe JSON into masks and tiles, then trains through the library's `scripts/train.py`. The library also works on its own from YAML configs and the command line: see the [library guide](docs/LIBRARY.md).
 - **Labels are hard to lose.** Each save names its own folder and goes through one ordered queue, the last edit is flushed before the window closes, and a label file that can't be read is flagged and never written over.
 - **Geometry checked against an independent model.** The brush and eraser merge and cut polygons with Clipper. [A seeded test](app/e2e/geometry.spec.ts) runs 150 random paint and erase strokes and checks over 10,000 points against an independent model.
-- **A crash only some CPUs hit.** Local training died at random on one AVX-only Xeon: 6 of 12 runs. The cause was a race in MKL's first vector-math call. One single-threaded call at import brought real runs to 0 of 30, and a stress loop to 0 of 6000. The obvious workaround, `MKL_ENABLE_INSTRUCTIONS=AVX`, only hides it: the same loop still crashed 578 times.
 
 ## Tested on real images
 
-The screenshots, the demo and the numbers here come from real runs on circuit-board photos from the [VisA dataset](https://github.com/amazon-science/spot-diff): four defect types, 64 labelled images, and 27 held back that the model never saw. The model is a Unet with a ResNet-34 encoder, trained through the app on a GTX 1080 Ti. The scripts and results are in [`docs/demo`](docs/demo/README.md).
+The screenshots, the demo and these numbers come from real runs on circuit-board photos from the [VisA dataset](https://github.com/amazon-science/spot-diff): four defect types, 64 labelled images, and 27 held back that the model never saw. The model is a Unet with a ResNet-34 encoder, trained through the app on a GTX 1080 Ti. It's one run on a small set, so read the numbers as rough. The scripts and results, and what these runs changed in the training code, are in [`docs/demo`](docs/demo/README.md).
 
-Those runs found two silent bugs that synthetic tests had never shown:
+On the 27 unseen images, all with defects, the model found 24 of the 55 defects (at least half of each covered), proposed nothing on 6 images, and reached a mean IoU of 0.41 across the four defect types. That IoU is over all pixels of each type. The app's Best IoU of 0.669 reads higher because it's on validation tiles and averages background in.
 
-1. **Softmax applied twice.** The configs put softmax on the model's output, and the losses apply it again. Even a perfect prediction then cost 0.30 on the combined focal and Dice loss, and no pixel could look more than 40% certain. Validation loss sat just above that floor, at 0.315, and quality later collapsed.
-2. **Part of each image ignored.** Tiling dropped any leftover strip narrower than half a tile. On these 1404×1070 photos, 30% of every image never reached training, and on a 1500×1500 image it would be 53%.
+**Mostly right when it proposes.** Of the 31 proposals, 24 are on a defect and the right type, 3 are on a defect but the wrong type, and 4 are mostly off any defect. On 30 defect-free boards, it proposed only 1 shape.
 
-Both are fixed, with tests.
-
-![Training curves from the app: before the fix, quality collapses at epoch 24; after it, quality climbs and holds](docs/media/training-curves.webp)
-
-The table isolates the softmax fix on the 27 unseen images. Both models have the tiling fix and the same data and training settings. It's one run each, so small differences mean little.
-
-| On the 27 unseen images | Before | After |
-|---|---:|---:|
-| Real defects found (at least half covered) | 2 of 55 | **24 of 55** |
-| Images with no proposal at all | 25 of 27 | 6 of 27 |
-| Mean IoU across the four defect types | 0.18 | **0.41** |
-
-The IoU here is over all pixels of each type. The app's Best IoU of 0.669 reads higher because it's on validation tiles and averages background in.
-
-**Few false alarms.** Of the 31 proposals after the fix, 24 are on a defect and the right type, 3 are on a defect but the wrong type, and 4 are mostly off any defect. On 30 defect-free boards, it proposed only 1 shape.
-
-![The same unseen images with true labels, the model before the fix and the model after it](docs/media/before-after.webp)
+![The same unseen images with true labels and the model's proposals](docs/media/examples.webp)
 
 These examples are hand-picked to show each defect type, so they're better than average for all but bent pins. The averages are in the chart:
 
-![Bar charts: IoU by defect type before and after the fix, and IoU by certainty quarter](docs/media/results.webp)
+![Bar charts: IoU by defect type, and IoU by certainty quarter](docs/media/results.webp)
 
-The right-hand chart is why review goes least certain first. It's from only 31 shapes, so treat it as a direction rather than a measurement.
+The right-hand chart is the case for reviewing least certain first: low scores go with weak shapes (Spearman 0.73 between score and IoU). It's from only 31 shapes, so treat it as a direction rather than a measurement.
 
-**What it still gets wrong.** With 64 labelled images, the model misses more than half of the defects and never finds a bent pin. Missing-sensor IoU also dropped slightly, from 0.72 to 0.65: both models found the same two of the five images, and the new model's outline on one of them is looser. A defect the model misses has no shape to review, so you still need to look at the images. How much labelling time this saves hasn't been measured.
+**What it still gets wrong.** With 64 labelled images, the model misses more than half of the defects and never finds a bent pin. A defect the model misses has no shape to review, so you still need to look at the images. How much labelling time this saves hasn't been measured.
 
 ## Try it
 
