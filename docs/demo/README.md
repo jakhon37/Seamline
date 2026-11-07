@@ -42,3 +42,28 @@ python docs/demo/clean_boards.py VisA/pcb1 demo/pcb demo/clean clean.json
 - A proposal counts as on a defect when at least half of it lies on a true defect of any type.
 - 27 images and 31 predicted shapes is a small sample, so small differences mean little.
 - "Before" is the same run on the code from before the softmax fix, with the tiling fix already in. Its validation IoU peaked at 0.389 and collapsed to 0.196 by epoch 24. After the fix it reached 0.669.
+
+## What these runs changed
+
+These runs found two silent bugs that synthetic tests had never shown:
+
+1. **Softmax applied twice.** The configs put softmax on the model's output, and the losses apply it again. Even a perfect prediction then cost 0.30 on the combined focal and Dice loss, and no pixel could look more than 40% certain. Validation loss sat just above that floor, at 0.315, and quality later collapsed.
+2. **Part of each image ignored.** Tiling dropped any leftover strip narrower than half a tile. On these 1404×1070 photos, 30% of every image never reached training, and on a 1500×1500 image it would be 53%.
+
+Both are fixed, with tests.
+
+![Training curves from the app: before the fix, quality collapses at epoch 24; after it, quality climbs and holds](../media/training-curves.webp)
+
+The table isolates the softmax fix on the 27 unseen images. Both models have the tiling fix and the same data and training settings. It's one run each, so small differences mean little.
+
+| On the 27 unseen images | Before | After |
+|---|---:|---:|
+| Real defects found (at least half covered) | 2 of 55 | **24 of 55** |
+| Images with no proposal at all | 25 of 27 | 6 of 27 |
+| Mean IoU across the four defect types | 0.18 | **0.41** |
+
+![The same unseen images with true labels, the model before the fix and the model after it](../media/before-after.webp)
+
+![Bar charts: IoU by defect type before and after the fix, and IoU by certainty quarter](../media/results-before-after.webp)
+
+Missing-sensor IoU also dropped slightly, from 0.72 to 0.65: both models found the same two of the five images, and the new model's outline on one of them is looser.
