@@ -5,7 +5,15 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from engine.studio import is_val, list_images, prepare, rasterize, shapes_from_labels
+from engine.studio import (
+    is_val,
+    list_images,
+    predict_labels,
+    prepare,
+    rasterize,
+    shapes_from_labels,
+    tile_starts,
+)
 
 
 def make_project(root, images, classes=("a", "b")):
@@ -90,6 +98,57 @@ def test_big_image_tiles_keep_alignment_and_skip_empty(tmp_path):
     # Shape spans x 250-350, y 50-150: this tile holds its lower right part
     mask = np.array(Image.open(tile))
     assert mask[0, 0] == 1 and mask[60, 60] == 0
+
+
+@pytest.mark.parametrize(
+    "size, tile, starts",
+    [
+        (500, 1024, [0]),
+        (1024, 1024, [0]),
+        (1404, 1024, [0, 380]),
+        (2048, 1024, [0, 1024]),
+        (3000, 1024, [0, 1024, 1976]),
+    ],
+)
+def test_tiles_cover_the_whole_side_at_full_size(size, tile, starts):
+    assert tile_starts(size, tile) == starts
+
+
+def test_tiles_reach_a_shape_past_the_last_full_tile(tmp_path):
+    # 40 px past the last full tile: under half a tile, and the only shape is there
+    shape = box("a", 120, 10, 135, 100)
+    make_project(
+        tmp_path,
+        [("big", (140, 107), [shape]), ("b2", (32, 32), [box("a", 0, 0, 9, 9)])],
+    )
+    prepare(tmp_path, 0.5, 100)
+    files = list((tmp_path / ".myseg" / "dataset").glob("*/masks/big__*.png"))
+    assert files and all(Image.open(f).size == (100, 100) for f in files)
+    covered = np.zeros((107, 140), dtype=bool)
+    for f in files:
+        left, top = map(int, f.stem.split("__")[1].split("_"))
+        covered[top : top + 100, left : left + 100] |= np.array(Image.open(f)) > 0
+    assert (covered == (rasterize([shape], (140, 107), {"a": 1}) > 0)).all()
+
+
+def test_predict_covers_the_image_and_keeps_the_surer_tile_where_they_overlap():
+    torch = pytest.importorskip("torch")
+    pytest.importorskip("cv2")
+    answers = iter([[0.2, 0.6, 0.2], [0.05, 0.05, 0.9]])
+
+    def model(batch):
+        logits = torch.tensor(next(answers)).log()
+        return logits[None, :, None, None].expand(1, 3, 8, 8)
+
+    def transform(image):
+        return {"image": torch.zeros(3, 8, 8)}
+
+    image = np.zeros((100, 140, 3), dtype=np.uint8)
+    labels, confidence = predict_labels(model, transform, image, 100, "cpu")
+    # The tiles start at x 0 and x 40, and the second is surer
+    assert (labels[:, :40] == 1).all() and (labels[:, 40:] == 2).all()
+    assert confidence[0, 0] == pytest.approx(0.6 * 255, abs=2)
+    assert confidence[0, 139] == pytest.approx(0.9 * 255, abs=2)
 
 
 def test_split_is_stable():

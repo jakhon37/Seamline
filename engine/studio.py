@@ -66,6 +66,11 @@ def is_val(name: str, val_split: float) -> bool:
     return int(hashlib.sha1(name.encode()).hexdigest()[:8], 16) / 0xFFFFFFFF < val_split
 
 
+def tile_starts(size: int, tile: int) -> list:
+    """Where tiles start along one side: they cover all of it, the last one moved back to stay full size."""
+    return [0] if size <= tile else [*range(0, size - tile, tile), size - tile]
+
+
 def prepare(root: Path, val_split: float, tile: int) -> dict:
     project = load_project(root)
     class_ids = {c["name"]: i + 1 for i, c in enumerate(project["classes"])}
@@ -103,8 +108,8 @@ def prepare(root: Path, val_split: float, tile: int) -> dict:
         mask = rasterize(shapes, image.size, class_ids)
         pixels += np.bincount(mask.ravel(), minlength=len(pixels))[: len(pixels)]
         width, height = image.size
-        for top in range(0, max(height - tile // 2, 1), tile):
-            for left in range(0, max(width - tile // 2, 1), tile):
+        for top in tile_starts(height, tile):
+            for left in tile_starts(width, tile):
                 box = (left, top, min(left + tile, width), min(top + tile, height))
                 piece = mask[box[1] : box[3], box[0] : box[2]]
                 # Skip empty tiles of big images, or background swamps the set
@@ -212,18 +217,23 @@ def predict_labels(model, transform, image: np.ndarray, tile: int, device: str) 
     confidence = np.zeros((height, width), dtype=np.uint8)
     step = tile if max(height, width) > tile else max(height, width)
     with torch.inference_mode():
-        for top in range(0, height, step):
-            for left in range(0, width, step):
+        for top in tile_starts(height, step):
+            for left in tile_starts(width, step):
                 piece = image[top : top + step, left : left + step]
                 batch = transform(image=piece)["image"].unsqueeze(0).to(device)
                 best, index = model(batch).softmax(1).max(1)
                 size = (piece.shape[1], piece.shape[0])
-                labels[top : top + step, left : left + step] = cv2.resize(
+                tile_labels = cv2.resize(
                     index[0].cpu().numpy().astype(np.uint8), size, interpolation=cv2.INTER_NEAREST
                 )
-                confidence[top : top + step, left : left + step] = cv2.resize(
+                tile_confidence = cv2.resize(
                     (best[0].cpu().numpy() * 255).astype(np.uint8), size, interpolation=cv2.INTER_LINEAR
                 )
+                # Tiles overlap near the edges: keep whichever is surer
+                region = (slice(top, top + step), slice(left, left + step))
+                surer = tile_confidence > confidence[region]
+                labels[region][surer] = tile_labels[surer]
+                confidence[region][surer] = tile_confidence[surer]
     return labels, confidence
 
 
