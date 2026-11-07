@@ -8,8 +8,8 @@
 <p align="center"><b>Label images and train segmentation models in one desktop app, on your own machines.</b></p>
 
 <p align="center">
-  <a href="https://github.com/jakhon37/mySegLib/actions/workflows/tests.yml"><img src="https://github.com/jakhon37/mySegLib/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
-  <a href="https://github.com/jakhon37/mySegLib/actions/workflows/lint.yml"><img src="https://github.com/jakhon37/mySegLib/actions/workflows/lint.yml/badge.svg" alt="Lint"></a>
+  <a href="https://github.com/jakhon37/Seamline/actions/workflows/tests.yml"><img src="https://github.com/jakhon37/Seamline/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
+  <a href="https://github.com/jakhon37/Seamline/actions/workflows/lint.yml"><img src="https://github.com/jakhon37/Seamline/actions/workflows/lint.yml/badge.svg" alt="Lint"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license"></a>
 </p>
 
@@ -101,7 +101,7 @@ The right-hand chart is why review goes least certain first. It's from only 31 s
 You need Node 20+ and Python 3.10+. There's no installer yet, and it's only been tested on Linux.
 
 ```bash
-git clone https://github.com/jakhon37/mySegLib.git
+git clone https://github.com/jakhon37/Seamline.git
 cd mySegLib
 python -m venv .venv && .venv/bin/pip install -r requirements.txt
 cd app

@@ -48,7 +48,7 @@ git clone https://github.com/YOUR_USERNAME/mySegLib.git
 cd mySegLib
 
 # Add upstream remote
-git remote add upstream https://github.com/jakhon37/mySegLib.git
+git remote add upstream https://github.com/jakhon37/Seamline.git
 ```
 
 ### 2. Create Virtual Environment
