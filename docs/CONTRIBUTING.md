@@ -45,7 +45,7 @@ We welcome contributions in several areas:
 ```bash
 # Fork the repository on GitHub, then clone your fork
 git clone https://github.com/YOUR_USERNAME/mySegLib.git
-cd mySegLib
+cd Seamline
 
 # Add upstream remote
 git remote add upstream https://github.com/jakhon37/Seamline.git

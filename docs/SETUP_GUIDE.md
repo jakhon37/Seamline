@@ -6,7 +6,7 @@
 
 ```bash
 # Navigate to project
-cd mySegLib
+cd Seamline
 
 # Install all development dependencies and pre-commit hooks
 make install-dev

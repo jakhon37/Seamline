@@ -168,7 +168,7 @@ bandit -r src/
 ```bash
 # 1. Clone repository
 git clone <repo-url>
-cd mySegLib
+cd Seamline
 
 # 2. Install development dependencies
 make install-dev

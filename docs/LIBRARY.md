@@ -32,7 +32,7 @@ You need Python 3.10+ and PyTorch 2.3+.
 
 ```bash
 git clone https://github.com/jakhon37/Seamline.git
-cd mySegLib
+cd Seamline
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 ```
