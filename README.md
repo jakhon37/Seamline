@@ -26,6 +26,8 @@ Label some images, train, let the model label the rest, review what it proposed,
 - **Tile pyramids for large images.** The viewer draws only the tiles on screen, from a pyramid built once with libvips.
 - **mySegLib underneath.** Training goes through the library in this repo, built on PyTorch and segmentation_models_pytorch. It also works on its own, with 9 architectures, multi-GPU DDP, chunked inference and ONNX export.
 
+If you only label, Seamline's labeller also ships on its own as [Seamtag](https://github.com/jakhon37/Seamtag), with labelme's tools and SAM.
+
 ![Seamline reviewing a model's proposals on a circuit board: a melted solder joint and a missing sensor](docs/media/hero.webp)
 
 ## How it works
