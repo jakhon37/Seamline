@@ -1,0 +1,28 @@
+{
+  "version": "7.9.1",
+  "flags": {},
+  "shapes": [
+    {
+      "label": "c",
+      "points": [
+        [
+          12.5,
+          9.5
+        ],
+        [
+          30.4,
+          25.6
+        ]
+      ],
+      "group_id": null,
+      "description": "",
+      "shape_type": "mask",
+      "flags": {},
+      "mask": "iVBORw0KGgoAAAANSUhEUgAAABEAAAAPCAAAAAAn2nvNAAAAXElEQVR4nFXOSQoDQQxD0feLvv+VlUU1JNHCyNgaalkTWI42Csacu21MsnNfRbPp8e/CmfZ6yObcq2WXHZB283KMS6HtvCIviu5MVJ58kem46W+DcvarHjv9V+QD6dApL+Jo2BEAAAAASUVORK5CYII="
+    }
+  ],
+  "imagePath": "mask_fractional.png",
+  "imageData": null,
+  "imageHeight": 48,
+  "imageWidth": 64
+}

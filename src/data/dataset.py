@@ -116,16 +116,31 @@ def get_image_mask_pairs(images_dir: str, masks_dir: str) -> tuple:
     mask_files = [f for f in os.listdir(masks_dir) if f.lower().endswith(valid_extensions)]
 
     # Pair by exact name so one missing file can't shift every later pair
-    def base_name(filename):
-        return os.path.splitext(filename)[0].replace("_mask", "")
+    def stem(filename):
+        return os.path.splitext(filename)[0]
 
-    masks_by_name = {base_name(f): f for f in mask_files}
-    image_files = sorted(image_files, key=base_name)
-    unmatched = [f for f in image_files if base_name(f) not in masks_by_name]
+    def base_name(filename):
+        return stem(filename).replace("_mask", "")
+
+    # A mask with the image's own name wins. Only an image without one takes a mask that matches
+    # once "_mask" is left out, such as a_mask.png for a.png, and never another image's own mask.
+    mask_files = sorted(mask_files)
+    exact = {stem(f): f for f in mask_files}
+    owned = {stem(f) for f in image_files}
+    fallback = {}
+    for f in mask_files:
+        if stem(f) not in owned:
+            fallback.setdefault(base_name(f), f)
+
+    def mask_for(filename):
+        return exact.get(stem(filename)) or fallback.get(base_name(filename))
+
+    image_files = sorted(image_files, key=lambda f: (base_name(f), f))
+    unmatched = [f for f in image_files if mask_for(f) is None]
     if unmatched:
         warnings.warn(f"Skipping {len(unmatched)} images without a mask, e.g. {unmatched[0]}")
-    image_files = [f for f in image_files if base_name(f) in masks_by_name]
-    mask_files = [masks_by_name[base_name(f)] for f in image_files]
+    image_files = [f for f in image_files if mask_for(f) is not None]
+    mask_files = [mask_for(f) for f in image_files]
 
     # Create full paths
     image_paths = [os.path.join(images_dir, f) for f in image_files]

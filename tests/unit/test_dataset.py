@@ -315,6 +315,43 @@ class TestGetImageMaskPairs:
         assert len(img_paths) == 1, "Should only find regular image file"
         assert "_mask.tif" not in img_paths[0], "Should filter out _mask.tif files"
 
+    def test_masks_named_with_a_mask_suffix(self, tmp_path):
+        """a_mask.png is a.png's mask when no mask has the image's own name."""
+        images_dir = tmp_path / "images"
+        masks_dir = tmp_path / "masks"
+        images_dir.mkdir()
+        masks_dir.mkdir()
+        for name in ("a", "b"):
+            Image.new("RGB", (8, 8)).save(images_dir / f"{name}.png")
+            Image.new("L", (8, 8)).save(masks_dir / f"{name}_mask.png")
+
+        img_paths, mask_paths = get_image_mask_pairs(str(images_dir), str(masks_dir))
+
+        assert [Path(p).name for p in img_paths] == ["a.png", "b.png"]
+        assert [Path(p).name for p in mask_paths] == ["a_mask.png", "b_mask.png"]
+
+    def test_a_mask_with_the_images_own_name_wins(self, tmp_path):
+        """Names that differ only by _mask keep their own masks, as the app's tiles do: x/a.png
+        and x_mask/a.png, or a.png and a_mask.png, in one project."""
+        images_dir = tmp_path / "images"
+        masks_dir = tmp_path / "masks"
+        images_dir.mkdir()
+        masks_dir.mkdir()
+        names = ["p__0_0", "p_mask__0_0", "x%2Fa__0_0", "x_mask%2Fa__0_0"]
+        for name in names:
+            Image.new("RGB", (8, 8)).save(images_dir / f"{name}.png")
+            Image.new("L", (8, 8)).save(masks_dir / f"{name}.png")
+        # And an image without a mask of its own leaves another image's alone
+        Image.new("RGB", (8, 8)).save(images_dir / "q.png")
+        Image.new("RGB", (8, 8)).save(images_dir / "q_mask.png")
+        Image.new("L", (8, 8)).save(masks_dir / "q_mask.png")
+
+        with pytest.warns(UserWarning, match="Skipping 1 images without a mask, e.g. q.png"):
+            img_paths, mask_paths = get_image_mask_pairs(str(images_dir), str(masks_dir))
+
+        pairs = [(Path(i).name, Path(m).name) for i, m in zip(img_paths, mask_paths)]
+        assert sorted(pairs) == sorted((f"{n}.png", f"{n}.png") for n in names + ["q_mask"])
+
     def test_multiple_extensions(self, tmp_path):
         """Test support for multiple file extensions."""
         images_dir = tmp_path / "images"
