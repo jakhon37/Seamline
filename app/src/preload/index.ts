@@ -9,13 +9,20 @@ const on = (channel: string) => (fn: (payload: any) => void) => {
 contextBridge.exposeInMainWorld('api', {
   pickProject: () => ipc.invoke('project:pick'),
   openProject: (dir: string) => ipc.invoke('project:open', dir),
-  saveProject: (project: unknown) => ipc.invoke('project:save', project),
+  refreshProject: (root: string) => ipc.invoke('project:refresh', root),
+  saveClasses: (root: string, classes: unknown) => ipc.invoke('project:save-classes', root, classes),
+  readClasses: (root: string) => ipc.invoke('project:read-classes', root),
   openImage: (name: string) => ipc.invoke('image:open', name),
   loadLabels: (root: string, name: string) => ipc.invoke('labels:load', root, name),
-  saveLabels: (root: string, name: string, shapes: unknown, size: number[]) =>
-    ipc.invoke('labels:save', root, name, shapes, size),
+  haveLabels: (root: string, name: string, key: string, fresh: boolean) => ipc.invoke('labels:have', root, name, key, fresh),
+  saveLabels: (root: string, name: string, shapes: unknown, size: number[], from?: number[]) =>
+    ipc.invoke('labels:save', root, name, shapes, size, from),
+  openSeamtag: (root: string, name: string | null) => ipc.invoke('seamtag:open', root, name),
+  locateSeamtag: (root: string, name: string | null) => ipc.invoke('seamtag:locate', root, name),
+  downloadSeamtag: () => ipc.invoke('seamtag:download'),
   listRuns: () => ipc.invoke('runs:list'),
   runLog: (name: string) => ipc.invoke('runs:log', name),
+  exportModel: (run: string) => ipc.invoke('model:export', run),
   startTraining: (options: unknown, target: unknown) => ipc.invoke('train:start', options, target),
   checkRemote: (host: string, dir: string) => ipc.invoke('remote:check', host, dir),
   stopTraining: () => ipc.invoke('train:stop'),

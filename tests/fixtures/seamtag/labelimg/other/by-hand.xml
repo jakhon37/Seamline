@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE annotation [ <!ENTITY x "y"> ]>
+<!-- written by hand -->
+<annotation verified='yes'>
+  <folder>VOC2012</folder>
+  <filename>by-hand.png</filename>
+  <object>
+    <name><![CDATA[cat & dog]]></name><occluded>0</occluded>
+    <difficult> TRUE </difficult>
+    <bndbox><xmin>10.5</xmin><ymin> 20 </ymin><xmax>30</xmax><ymax>40.25</ymax></bndbox>
+    <part><name>head</name><bndbox><xmin>1</xmin><ymin>1</ymin><xmax>2</xmax><ymax>2</ymax></bndbox></part>
+  </object>
+  <object><name>caf&#233; &amp; bar&x;</name><bndbox><xmin>0x10</xmin><ymin>2e0</ymin><xmax>+30.</xmax><ymax>.5e2</ymax></bndbox></object>
+</annotation>

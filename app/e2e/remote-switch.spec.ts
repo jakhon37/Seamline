@@ -41,12 +41,12 @@ test.afterEach(async () => {
   expect(errors).toEqual([])
 })
 
-async function setup(name: string) {
+async function setup(name: string, env: Record<string, string> = {}) {
   const base = path.join(BASE, name)
   const gpu = machine = fakeGpu(base)
   const a = await project(base, 'folder-a')
   const b = await project(base, 'folder-b')
-  app = await launch(gpu, base, a)
+  app = await launch(gpu, base, a, env)
   const page = await app.firstWindow()
   errors = []
   page.on('pageerror', (e) => errors.push(e.message))
@@ -364,6 +364,30 @@ test('stopping a run before its first event isn\'t a failure', async () => {
   await expect(train(page)).toBeVisible()
   await expect(status(page)).toContainText('Stopped')
   expect(saved(a, run)).toEqual([])
+})
+
+test('a remote run is named by the time here, as a local run is, so the newest comes first', async () => {
+  // Far from UTC: named by UTC, a remote run came below a local one started hours before it
+  const { gpu, a, page } = await setup('local-time', { TZ: 'Asia/Seoul' })
+  const local = await runningHere(page)
+  await stop(page).click()
+  await expect(train(page)).toBeVisible(SOON)
+  // Runs named for each second of the next minute, as one started in the same second would be: the
+  // remote run takes the next name free, and no other run's folder
+  const later = (seconds: number) => {
+    const [y, mo, d, h, mi, s] = local.match(/^(\d{4})(\d\d)(\d\d)_(\d\d)(\d\d)(\d\d)$/)!.slice(1).map(Number)
+    return new Date(Date.UTC(y, mo - 1, d, h, mi, s + seconds)).toISOString().replace(/[-:]/g, '').replace('T', '_').slice(0, 15)
+  }
+  const taken = Array.from({ length: 60 }, (_, i) => later(i + 1))
+  for (const name of taken) mkdirSync(runDir(a, name))
+  const remote = await running(page, gpu, a)
+  expect(remote >= later(61)).toBe(true)
+  const runs = (await page.evaluate(() => window.api.listRuns())).map((r) => r.name)
+  expect(runs).toEqual([remote, ...[...taken].reverse(), local])
+  expect(readdirSync(runDir(a, local)).sort()).toEqual(['events.jsonl', 'options.json'])
+  await stop(page).click()
+  await expect.poll(() => existsSync(gpu.projectOf(remote)), SOON).toBe(false)
+  await expect(train(page)).toBeVisible()
 })
 
 test('a removal whose answer got lost isn\'t taken for a lost model', async () => {

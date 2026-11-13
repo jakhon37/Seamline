@@ -41,6 +41,7 @@ benchmark_results/
 !app/resources/*.png
 !docs/brand/*.png
 !docs/media/*.png
+!tests/fixtures/seamtag/**/*.png
 
 # OS
 .DS_Store

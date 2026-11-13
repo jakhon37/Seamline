@@ -16,11 +16,25 @@ ids = {c: i + 1 for i, c in enumerate(classes)}
 inter, union = np.zeros(5), np.zeros(5)
 shapes, images, found, total_true = [], [], 0, 0
 
+# Where each file is in the project, by its name: held-back images may sit in subfolders, with their
+# pre-labels beside them. Hidden folders, such as .myseg, hold no images to score.
+places = {}
+for file in sorted(project.rglob("*")):
+    rel = file.relative_to(project)
+    if file.is_file() and not any(part.startswith(".") for part in rel.parts):
+        places.setdefault(file.name, []).append(rel)
+
 for path in sorted(truth.glob("*.json")):
     doc = json.loads(path.read_text())
     size = (doc["imageWidth"], doc["imageHeight"])
     true_mask = rasterize(doc["shapes"], size, ids)
-    pred_file = project / path.name
+    image = places.get(Path(doc["imagePath"]).name, [])
+    if len(image) > 1:
+        where = ", ".join(p.as_posix() for p in image)
+        sys.exit(f"{path.name}: its image is in more than one folder of the project: {where}")
+    # The image's path in the project, without its extension, as its label file is named
+    name = image[0].with_suffix("").as_posix() if image else path.stem
+    pred_file = project / f"{name}.json"
     pred_shapes = json.loads(pred_file.read_text())["shapes"] if pred_file.exists() else []
     ai = [s for s in pred_shapes if s.get("flags", {}).get("ai")]
     pred_mask = rasterize(ai, size, ids)
@@ -38,9 +52,9 @@ for path in sorted(truth.glob("*.json")):
         same = true_mask == ids[s["label"]]
         iou = np.logical_and(m, same).sum() / max(np.logical_or(m, same).sum(), 1)
         any_true = np.logical_and(m, true_mask > 0).sum() / max(m.sum(), 1)
-        shapes.append({"image": path.stem, "label": s["label"], "score": s.get("score"), "iou": float(iou),
+        shapes.append({"image": name, "label": s["label"], "score": s.get("score"), "iou": float(iou),
                        "on_a_defect": float(any_true), "area": int(m.sum())})
-    images.append({"image": path.stem, "shapes": len(ai), "true": len(doc["shapes"])})
+    images.append({"image": name, "shapes": len(ai), "true": len(doc["shapes"])})
 
 iou_per_class = {c: float(inter[i] / union[i]) if union[i] else None for c, i in ids.items()}
 result = {
