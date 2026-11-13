@@ -139,10 +139,10 @@ export async function project(base: string, name: string) {
 }
 
 // A profile of its own, so the fake host doesn't end up in the real app's settings
-export const launch = (gpu: FakeGpu, base: string, dir: string) =>
+export const launch = (gpu: FakeGpu, base: string, dir: string, env: Record<string, string> = {}) =>
   electron.launch({
     args: [path.resolve(__dirname, '..'), `--user-data-dir=${path.join(base, 'profile')}`],
-    env: { ...process.env, ...gpu.env, MYSEG_PROJECT: dir } as Record<string, string>
+    env: { ...process.env, ...gpu.env, MYSEG_PROJECT: dir, ...env } as Record<string, string>
   })
 
 export async function startRemote(page: Page) {

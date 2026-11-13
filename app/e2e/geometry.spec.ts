@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { eraseShapes, outline, paintShapes, strokeRegion } from '../src/renderer/src/geometry'
+import { contains, editable, eraseShapes, maskPlacement, outline, paintShapes, strokeRegion } from '../src/renderer/src/geometry'
 import type { Shape } from '../src/renderer/src/types'
 
 const SIZE = [400, 300]
@@ -75,6 +75,49 @@ test('erasing keeps the selection on a shape that stays whole, and reports no ch
   const bite = eraseShapes(shapes, stroke([[200, 30]]), 1)
   expect(bite.shapes).toHaveLength(2)
   expect(bite.selected).toBe(1)
+})
+
+test("the brush and eraser leave alone what Seamtag reshapes: locked shapes, circles, masks", () => {
+  const locked = { ...poly('a', 10, 10, 110, 50), locked: true }
+  const circle: Shape = { label: 'a', shape_type: 'circle', points: [[200, 100], [230, 100]], flags: {} }
+  const mask: Shape = { label: 'a', shape_type: 'mask', points: [[300, 10], [339, 49]], mask: 'iVBORw0KGgo=', flags: {} }
+  const shapes = [locked, circle, mask]
+  expect(shapes.map(editable)).toEqual([false, false, false])
+  expect(eraseShapes(shapes, stroke([[0, 30], [400, 30], [400, 100], [0, 100]], 20), null).shapes).toBe(shapes)
+  expect(eraseShapes(shapes, stroke([[200, 100]], 20), 1).shapes).toBe(shapes)
+  // Painting their class beside them makes a shape of its own, and they stay as they were
+  const painted = paintShapes(shapes, stroke([[60, 30], [200, 100], [320, 30]], 15), 'a')
+  expect(painted.slice(0, 3)).toEqual(shapes)
+  expect(painted.slice(0, 3).every((s, i) => s === shapes[i])).toBe(true)
+  expect(painted).toHaveLength(4)
+})
+
+test("a mask's pixels sit where labelme 7 puts them", () => {
+  const mask = (points: number[][]): Shape => ({ label: 'm', shape_type: 'mask', points, mask: '', flags: {} })
+  // Whole-number points: the box gives the size, and a larger PNG is cut to it
+  expect(maskPlacement(mask([[70, 70], [79, 79]]), { width: 10, height: 10 })).toEqual({ x: 70, y: 70, width: 10, height: 10 })
+  expect(maskPlacement(mask([[2, 1], [9, 6]]), { width: 20, height: 20 })).toEqual({ x: 2, y: 1, width: 8, height: 6 })
+  // Fractional ones: the PNG's own size, from the first point rounded half to even
+  expect(maskPlacement(mask([[150.4, 60.6], [151.4, 61.6]]), { width: 4, height: 4 })).toEqual({ x: 150, y: 61, width: 4, height: 4 })
+  expect(maskPlacement(mask([[2.5, 3.5], [5, 6]]), { width: 3, height: 3 })).toEqual({ x: 2, y: 4, width: 3, height: 3 })
+})
+
+test('each shape type is picked where it is drawn', () => {
+  const shape = (shape_type: Shape['shape_type'], points: number[][]): Shape => ({ label: 'x', shape_type, points, flags: {} })
+  const turned = shape('oriented_rectangle', [[120, 10], [150, 20], [143, 41], [113, 31]])
+  expect(contains(turned, [131, 25], 2)).toBe(true)
+  expect(contains(turned, [115, 12], 2)).toBe(false)
+  const circle = shape('circle', [[30, 80], [42, 80]])
+  expect(contains(circle, [30, 90], 2)).toBe(true)
+  expect(contains(circle, [30, 95], 2)).toBe(false)
+  // Lines stay open: a point inside the angle a line strip makes isn't on it
+  const line = shape('linestrip', [[170, 40], [185, 60], [195, 45]])
+  expect(contains(line, [177.5, 50], 2)).toBe(true)
+  expect(contains(line, [185, 50], 2)).toBe(false)
+  expect(contains(shape('point', [[180, 20]]), [182, 21], 3)).toBe(true)
+  expect(contains(shape('point', [[180, 20]]), [186, 20], 3)).toBe(false)
+  expect(contains(shape('line', [[0, 0], [100, 0]]), [50, 1], 2)).toBe(true)
+  expect(outline(circle)).toHaveLength(24)
 })
 
 test('erasing a whole shape removes it', () => {

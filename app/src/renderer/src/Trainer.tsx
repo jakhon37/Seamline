@@ -1,13 +1,48 @@
-import { Play, RefreshCw, Square } from 'lucide-react'
+import { ExternalLink, PackageOpen, Play, Plus, RefreshCw, Square } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { OpenProject, Run, TrainEvent } from './types'
+import { FORMAT_NAMES, type LabelFormat } from '../../shared/formats'
+import { isLabelled, notClasses } from '../../shared/labels'
+import { type Exported, type LabelClass, type OpenProject, PALETTE, type Run, type TrainEvent } from './types'
 
 const ARCHS = ['Unet', 'UnetPlusPlus', 'DeepLabV3', 'DeepLabV3Plus', 'FPN', 'PSPNet', 'PAN', 'Linknet', 'MAnet']
 const ENCODERS = ['resnet18', 'resnet34', 'resnet50', 'efficientnet-b0', 'efficientnet-b4', 'mobilenet_v2', 'densenet121']
 const LOSSES = ['combined', 'focal', 'dice', 'cross_entropy']
+// Shapes with no area, which a segmentation mask can't hold
+const NO_AREA: Record<string, [string, string]> = {
+  line: ['line', 'lines'], linestrip: ['line strip', 'line strips'], point: ['point', 'points'], points: ['point set', 'point sets']
+}
 
-type Props = { data: OpenProject; active: boolean; onError: (m: string) => void; onTraining: (on: boolean) => void }
+type Props = {
+  data: OpenProject
+  active: boolean
+  onError: (m: string) => void
+  onTraining: (on: boolean) => void
+  /** Change the class list, from the list as it is when the change's turn comes */
+  changeClasses: (change: (classes: LabelClass[]) => LabelClass[]) => Promise<void>
+  /** Open the folder in Seamtag */
+  onSeamtag: () => void
+  /** Seamtag is starting, so it isn't started again */
+  seamtagStarting: boolean
+}
 type Series = { name: string; color: string; values: number[] }
+
+const leftOut = (counts: Record<string, number>) =>
+  Object.entries(counts).filter(([, n]) => n > 0).map(([type, n]) => {
+    const [one, many] = NO_AREA[type] ?? [`${type} shape`, `${type} shapes`]
+    return `${n} ${n === 1 ? one : many}`
+  }).join(', ')
+// Only the formats the folder has
+const formatList = (counts: Record<string, number>) =>
+  Object.entries(counts).filter(([, n]) => n > 0).map(([f, n]) => `${FORMAT_NAMES[f as LabelFormat] ?? f} ${n}`).join(' · ')
+// The labels named, most used first; the rest are counted
+const NAMED = 5
+const untrained = ({ images, labels }: ReturnType<typeof notClasses>) => {
+  const one = labels.length === 1
+  const named = labels.slice(0, NAMED).map(([label, n], i) => `${label} (${n}${i ? '' : n === 1 ? ' shape' : ' shapes'})`).join(', ')
+  const more = labels.length > NAMED ? ` and ${labels.length - NAMED} more` : ''
+  return `${images} ${images === 1 ? 'image uses' : 'images use'} ${one ? "a label that isn't a class" : "labels that aren't classes"} yet, ` +
+    `so ${one ? 'it' : 'they'} won't train: ${named}${more}.`
+}
 
 function Chart({ title, series, max }: { title: string; series: Series[]; max?: number }) {
   const W = 600, H = 200, L = 40, B = 20, T = 8
@@ -58,7 +93,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return <label className="field"><span>{label}</span>{children}</label>
 }
 
-export default function Trainer({ data, active, onError, onTraining }: Props) {
+export default function Trainer({ data, active, onError, onTraining, changeClasses, onSeamtag, seamtagStarting }: Props) {
   const [options, setOptions] = useState({
     architecture: 'Unet', encoder: 'resnet34', encoder_weights: 'imagenet', loss: 'combined',
     epochs: 30, batch_size: 8, image_size: 512, learning_rate: 0.0001, val_split: 0.2, tile: 1024, num_workers: 4
@@ -80,6 +115,8 @@ export default function Trainer({ data, active, onError, onTraining }: Props) {
   const [host, setHost] = useState(stored('trainHost', ''))
   const [dir, setDir] = useState(stored('trainDir', 'seamline'))
   const [remote, setRemote] = useState<string>('')
+  const [exporting, setExporting] = useState<string | null>(null)
+  const [exported, setExported] = useState<Record<string, Exported>>({})
   const logRef = useRef<HTMLPreElement>(null)
 
   const set = (key: string, value: unknown) => setOptions((o) => ({ ...o, [key]: value }))
@@ -129,6 +166,33 @@ export default function Trainer({ data, active, onError, onTraining }: Props) {
       setChecking(false)
     }
   }
+  // Labels left out of training go on the class list, so the next run trains on them. A dataset check
+  // on screen is run again, as what it says has changed.
+  const addClasses = async (labels: string[]) => {
+    try {
+      await changeClasses((classes) => {
+        const names = labels.filter((l) => !classes.some((c) => c.name === l))
+        const at = classes.length
+        return names.length ? [...classes, ...names.map((name, i) => ({ name, color: PALETTE[(at + i) % PALETTE.length] }))] : classes
+      })
+    } catch (e: any) {
+      return onError(`The classes couldn't be saved: ${e.message}`)
+    }
+    if (check) await runCheck()
+  }
+  // The model as ONNX beside the run, where Seamtag's pre-label menu finds it
+  const exportRun = async (name: string) => {
+    setExporting(name)
+    try {
+      const result = await window.api.exportModel(name)
+      setExported((all) => ({ ...all, [name]: result }))
+      await reload()
+    } catch (e: any) {
+      onError(`Export failed: ${e.message}`)
+    } finally {
+      setExporting(null)
+    }
+  }
   const testRemote = async () => {
     setRemote('Connecting…')
     try {
@@ -167,8 +231,15 @@ export default function Trainer({ data, active, onError, onTraining }: Props) {
   const prepared = events.find((e) => e.type === 'prepared')
   const last = epochs[epochs.length - 1]
   const best = epochs.length ? epochs.reduce((a, b) => (b.iou > a.iou ? b : a)) : null
-  const labelled = data.images.filter((i) => i.count > 0).length
+  // As training counts them: with an accepted shape that has an area and a class's label. Shapes with
+  // other labels are named beside the Train button, from the image list, before any check is run.
+  const classNames = useMemo(() => new Set(data.project.classes.map((c) => c.name)), [data.project.classes])
+  const labelled = useMemo(() => data.images.filter((i) => isLabelled(i.areas, classNames)).length, [data.images, classNames])
+  const missing = useMemo(() => notClasses(data.images, classNames), [data.images, classNames])
   const isRunning = !!running && running === current
+  // Shown from the project folder, where it is
+  const model = selected && (exported[selected.name]?.model ?? (selected.exported ? `${data.root}/.myseg/runs/${selected.name}/model.onnx` : null))
+  const shownModel = model && model.startsWith(data.root) ? model.slice(data.root.length + 1) : model
 
   return (
     <div className="trainer">
@@ -228,6 +299,14 @@ export default function Trainer({ data, active, onError, onTraining }: Props) {
           </button>
         )}
         {labelled < 2 && <p className="muted">Label at least two images first.</p>}
+        {missing.images > 0 && (
+          <>
+            <p className="warn" data-testid="not-classes">{untrained(missing)}</p>
+            <button className="ghost add-classes" onClick={() => addClasses(missing.labels.map(([label]) => label))} disabled={checking}>
+              <Plus size={15} /> Add as classes
+            </button>
+          </>
+        )}
 
         <h3 className="gap">Dataset check
           <button className="icon" onClick={runCheck} disabled={checking} title="Check dataset"><RefreshCw size={14} /></button>
@@ -238,11 +317,20 @@ export default function Trainer({ data, active, onError, onTraining }: Props) {
             <div><span>Labelled images</span><b>{check.labelled}</b></div>
             <div><span>Not labelled yet</span><b>{check.unlabelled}</b></div>
             <div><span>Train / val samples</span><b>{check.train} / {check.val}</b></div>
+            {check.formats && formatList(check.formats) && (
+              <div><span>Formats</span><b>{formatList(check.formats)}</b></div>
+            )}
             {Object.entries(check.class_pixels as Record<string, number>).map(([k, v]) => (
               <div key={k}><span>{k} pixels</span><b>{v.toLocaleString()}</b></div>
             ))}
+            {check.skipped_shapes && leftOut(check.skipped_shapes) && (
+              <p className="muted note">Left out, no area: {leftOut(check.skipped_shapes)}</p>
+            )}
             {check.unknown_labels.length > 0 && (
-              <p className="warn">Ignored, not in class list: {check.unknown_labels.join(', ')}</p>
+              <>
+                <p className="warn">Ignored, not in class list: {check.unknown_labels.join(', ')}</p>
+                <button className="ghost add-classes" onClick={() => addClasses(check.unknown_labels)} disabled={checking}><Plus size={15} /> Add as classes</button>
+              </>
             )}
           </div>
         )}
@@ -258,6 +346,26 @@ export default function Trainer({ data, active, onError, onTraining }: Props) {
           <div className="tile"><span>Samples</span><b>{prepared ? `${prepared.train} / ${prepared.val}` : '–'}</b></div>
         </div>
         {failure && <div className="error static">{failure.message}</div>}
+        {selected?.model && !isRunning && (
+          <section className="card export" data-testid="export">
+            <p>
+              {model
+                ? <>
+                  Saved as <code>{shownModel}</code>. Seamtag 3.3 pre-labels with the newest exported run unless another
+                  model is chosen in AI → Model for pre-labelling.
+                </>
+                : <span className="muted">Export this run's model as ONNX to pre-label with it in Seamtag.</span>}
+            </p>
+            <button className="ghost" onClick={() => exportRun(selected.name)} disabled={!!exporting}>
+              <PackageOpen size={15} /> {exporting === selected.name ? 'Exporting…' : 'Export for Seamtag'}
+            </button>
+            {model && (
+              <button className="ghost" onClick={onSeamtag} disabled={seamtagStarting}>
+                <ExternalLink size={15} /> {seamtagStarting ? 'Starting Seamtag…' : 'Open in Seamtag'}
+              </button>
+            )}
+          </section>
+        )}
         <div className="charts">
           <Chart title="Loss" series={[
             { name: 'train', color: '#4f8cff', values: epochs.map((e) => e.train_loss) },

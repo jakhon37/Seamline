@@ -10,13 +10,79 @@ const SCALE = 100
 // Smaller specks and pinholes come from stroke edges, not from anything drawn on purpose
 const MIN_AREA = 4
 
+/** Seamline's tools move and reshape polygons and rectangles; Seamtag the rest, and only it unlocks a shape */
+export const editable = (s: Shape) => (s.shape_type === 'polygon' || s.shape_type === 'rectangle' || !s.shape_type) && !s.locked
+
+/** Shape types that cover an area, and so fill */
+export const AREAS = new Set(['polygon', 'rectangle', 'oriented_rectangle', 'circle', 'mask'])
+
+/** The outline as a ring: an oriented rectangle is its four corners, a circle many points on its edge */
 export function outline(s: Shape): number[][] {
-  if (s.shape_type !== 'rectangle') return s.points
-  const [[a, b], [c, d]] = s.points
-  return [[a, b], [c, b], [c, d], [a, d]]
+  if ((s.shape_type === 'rectangle' || s.shape_type === 'mask') && s.points.length >= 2) {
+    const [[a, b], [c, d]] = s.points
+    return [[a, b], [c, b], [c, d], [a, d]]
+  }
+  if (s.shape_type === 'circle' && s.points.length >= 2) {
+    const [[cx, cy], [px, py]] = s.points
+    const r = Math.hypot(px - cx, py - cy)
+    const n = Math.max(24, Math.min(256, Math.round(r)))
+    return Array.from({ length: n }, (_, i) => [cx + r * Math.cos((i / n) * 2 * Math.PI), cy + r * Math.sin((i / n) * 2 * Math.PI)])
+  }
+  return s.points
+}
+
+export function inside(p: number[], poly: number[][]) {
+  let hit = false
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i], [xj, yj] = poly[j]
+    if (yi > p[1] !== yj > p[1] && p[0] < ((xj - xi) * (p[1] - yi)) / (yj - yi) + xi) hit = !hit
+  }
+  return hit
+}
+
+export function segmentDistance(p: number[], a: number[], b: number[]) {
+  const dx = b[0] - a[0], dy = b[1] - a[1]
+  const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy || 1)))
+  return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy)
+}
+
+/** Is the point on the shape? Lines and points count within `tolerance` image pixels. Masks by their box. */
+export function contains(s: Shape, p: number[], tolerance: number) {
+  const pts = s.points
+  if (s.shape_type === 'point' || s.shape_type === 'points') {
+    return pts.some((q) => Math.hypot(p[0] - q[0], p[1] - q[1]) <= tolerance)
+  }
+  if (s.shape_type === 'circle' && pts.length >= 2) {
+    return Math.hypot(p[0] - pts[0][0], p[1] - pts[0][1]) <= Math.max(tolerance, Math.hypot(pts[1][0] - pts[0][0], pts[1][1] - pts[0][1]))
+  }
+  if (AREAS.has(s.shape_type ?? 'polygon') && pts.length >= 2) return inside(p, outline(s))
+  return pts.some((q, i) => i > 0 && segmentDistance(p, pts[i - 1], q) <= tolerance) ||
+    (pts.length === 1 && Math.hypot(p[0] - pts[0][0], p[1] - pts[0][1]) <= tolerance)
+}
+
+/** numpy's round: halves go to the even number */
+export function roundHalfEven(x: number) {
+  const f = Math.floor(x)
+  return x - f === 0.5 ? (f % 2 === 0 ? f : f + 1) : Math.round(x)
+}
+
+/**
+ * Where labelme 7 puts a mask's pixels: from its first point, rounded. Whole-number points take the
+ * size from the box, cutting off any of the PNG beyond it; others keep the PNG's own size.
+ */
+export function maskPlacement(s: Shape, png: { width: number; height: number }) {
+  const [[x0, y0], [x1, y1]] = s.points
+  const x = roundHalfEven(x0), y = roundHalfEven(y0)
+  const whole = [x0, y0, x1, y1].every(Number.isInteger)
+  return {
+    x, y,
+    width: whole ? Math.min(png.width, roundHalfEven(x1) - x + 1) : png.width,
+    height: whole ? Math.min(png.height, roundHalfEven(y1) - y + 1) : png.height
+  }
 }
 
 export function accepted(s: Shape): Shape {
+  if (!s.flags?.ai && s.score === undefined) return s
   const { score: _score, flags, ...rest } = s
   const { ai: _ai, ...others } = flags ?? {}
   return { ...rest, flags: others }
@@ -94,14 +160,14 @@ const parts = (tree: unknown): number[][][] =>
     .filter((p: { outer: number[][] }) => ringArea(p.outer) >= MIN_AREA)
     .map((p: { outer: number[][]; holes: number[][][] }) => withHoles(p.outer, p.holes))
 
-/** Add a stroke to a class. Shapes of that class it touches merge into one. */
+/** Add a stroke to a class. Shapes of that class it touches merge into one; those Seamline can't reshape stay as they are. */
 export function paintShapes(shapes: Shape[], region: Region, label: string): Shape[] {
   // A pixel of slack: paint that exactly fills a hole or meets an edge still counts as touching
   const offset = new ClipperLib.ClipperOffset()
   offset.AddPaths(region, ClipperLib.JoinType.jtRound, ClipperLib.EndType.etClosedPolygon)
   const reach: Region = []
   offset.Execute(reach, SCALE)
-  const touched = shapes.filter((s) => s.label === label && overlaps(reach, s))
+  const touched = shapes.filter((s) => s.label === label && editable(s) && overlaps(reach, s))
   const merged = combine(ClipperLib.ClipType.ctUnion, [...region, ...touched.flatMap(solid)])
   const base = touched[0] ? accepted(touched[0]) : { label, flags: {} }
   const pieces = parts(merged).map((points) => ({ ...base, shape_type: 'polygon' as const, points }))
@@ -110,13 +176,16 @@ export function paintShapes(shapes: Shape[], region: Region, label: string): Sha
   return shapes.flatMap((s) => (s === touched[0] ? pieces : touched.includes(s) ? [] : [s]))
 }
 
-/** Cut a stroke out of one shape, or out of everything it touches. Returns the same array if nothing changed. */
+/**
+ * Cut a stroke out of one shape, or out of everything it touches, leaving alone shapes Seamline
+ * can't reshape. Returns the same array if nothing changed.
+ */
 export function eraseShapes(shapes: Shape[], region: Region, only: number | null) {
   let changed = false
   let selected: number | null = null
   const next: Shape[] = []
   shapes.forEach((s, i) => {
-    if ((only !== null && i !== only) || !overlaps(region, s)) {
+    if ((only !== null && i !== only) || !editable(s) || !overlaps(region, s)) {
       if (i === only) selected = next.length
       next.push(s)
       return
