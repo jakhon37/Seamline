@@ -1,0 +1,46 @@
+{
+  "version": "7.9.1",
+  "flags": {},
+  "shapes": [
+    {
+      "label": "a",
+      "points": [
+        [
+          -5.0,
+          -4.0
+        ],
+        [
+          14.0,
+          11.0
+        ]
+      ],
+      "group_id": null,
+      "description": "",
+      "shape_type": "mask",
+      "flags": {},
+      "mask": "iVBORw0KGgoAAAANSUhEUgAAABQAAAAQCAAAAAAzcwDHAAAAaUlEQVR4nE2QQQ7AIAzDbLT/fzk7pGUDIZXKSQpKQCBgjBBEVZRuVKQrt+Lc3lgAnABZTEiC9r7g1FYcrwnHLPBljee0QhG3Z1j/h0kFK0/lmmx0ADu81fZQU+fhsB/wC9jRjmVTLJDwAhDcMy9l2oGCAAAAAElFTkSuQmCC"
+    },
+    {
+      "label": "b",
+      "points": [
+        [
+          55.2,
+          40.7
+        ],
+        [
+          70.1,
+          52.3
+        ]
+      ],
+      "group_id": null,
+      "description": "",
+      "shape_type": "mask",
+      "flags": {},
+      "mask": "iVBORw0KGgoAAAANSUhEUgAAAA8AAAAMCAAAAACYKbg4AAAASUlEQVR4nD3OQRLDQAwCwZ4t///L5LB2bkgaQAXLYjrG7lI5GnsZO+DDlVdgzdNod0T5379gIZWeoLVrOrf5o3ZsuvatK++7gx/hXiEeoOQ37QAAAABJRU5ErkJggg=="
+    }
+  ],
+  "imagePath": "mask_edges.png",
+  "imageData": null,
+  "imageHeight": 48,
+  "imageWidth": 64
+}

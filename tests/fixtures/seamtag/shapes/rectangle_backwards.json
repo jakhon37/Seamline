@@ -1,0 +1,28 @@
+{
+  "version": "7.9.1",
+  "flags": {},
+  "shapes": [
+    {
+      "label": "a",
+      "points": [
+        [
+          50.2,
+          40.7
+        ],
+        [
+          8.6,
+          5.3
+        ]
+      ],
+      "group_id": null,
+      "description": "",
+      "shape_type": "rectangle",
+      "flags": {},
+      "mask": null
+    }
+  ],
+  "imagePath": "rectangle_backwards.png",
+  "imageData": null,
+  "imageHeight": 48,
+  "imageWidth": 64
+}

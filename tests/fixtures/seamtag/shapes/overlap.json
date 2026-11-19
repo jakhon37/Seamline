@@ -1,0 +1,86 @@
+{
+  "version": "7.9.1",
+  "flags": {},
+  "shapes": [
+    {
+      "label": "a",
+      "points": [
+        [
+          5.0,
+          5.0
+        ],
+        [
+          40.0,
+          30.0
+        ]
+      ],
+      "group_id": null,
+      "description": "",
+      "shape_type": "rectangle",
+      "flags": {},
+      "mask": null
+    },
+    {
+      "label": "b",
+      "points": [
+        [
+          20.0,
+          10.0
+        ],
+        [
+          60.0,
+          15.0
+        ],
+        [
+          35.0,
+          45.0
+        ]
+      ],
+      "group_id": null,
+      "description": "",
+      "shape_type": "polygon",
+      "flags": {},
+      "mask": null
+    },
+    {
+      "label": "c",
+      "points": [
+        [
+          45.5,
+          30.5
+        ],
+        [
+          53.5,
+          30.5
+        ]
+      ],
+      "group_id": null,
+      "description": "",
+      "shape_type": "circle",
+      "flags": {},
+      "mask": null
+    },
+    {
+      "label": "a",
+      "points": [
+        [
+          2.5,
+          20.5
+        ],
+        [
+          18.5,
+          44.5
+        ]
+      ],
+      "group_id": null,
+      "description": "",
+      "shape_type": "mask",
+      "flags": {},
+      "mask": "iVBORw0KGgoAAAANSUhEUgAAAA4AAAAUCAAAAACYblPwAAAAYElEQVR4nE2PQQ4AMQgCZ8z+/8vsAdvUk0RAEAwYBBiFriEIEil2LLqnMndGSZkQpqTKBRTlRQgK+lW2Btc5RmBOIkzPoh4399PGWJuEECZX1pDghopo3hLty2np0174Aau3JTcwLuHJAAAAAElFTkSuQmCC"
+    }
+  ],
+  "imagePath": "overlap.png",
+  "imageData": null,
+  "imageHeight": 48,
+  "imageWidth": 64
+}

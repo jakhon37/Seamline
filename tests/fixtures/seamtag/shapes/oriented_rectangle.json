@@ -1,0 +1,36 @@
+{
+  "version": "7.9.1",
+  "flags": {},
+  "shapes": [
+    {
+      "label": "c",
+      "points": [
+        [
+          20.712,
+          8.672
+        ],
+        [
+          51.888,
+          26.672
+        ],
+        [
+          43.888,
+          40.528
+        ],
+        [
+          12.712,
+          22.528
+        ]
+      ],
+      "group_id": null,
+      "description": "",
+      "shape_type": "oriented_rectangle",
+      "flags": {},
+      "mask": null
+    }
+  ],
+  "imagePath": "oriented_rectangle.png",
+  "imageData": null,
+  "imageHeight": 48,
+  "imageWidth": 64
+}

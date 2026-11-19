@@ -54,6 +54,16 @@ Copyright (c) ONNX Project Contributors
 Licensed under the Apache License 2.0
 https://github.com/onnx/onnx/blob/main/LICENSE
 
+## LabelImg
+Copyright (c) <2015-Present> Tzutalin
+Copyright (C) 2013  MIT, Computer Science and Artificial Intelligence Laboratory. Bryan Russell,
+Antonio Torralba, William T. Freeman
+The Pascal VOC, YOLO and CreateML label file readers in `engine/studio.py` and
+`app/src/shared/formats.ts` are ported from LabelImg's `libs/pascal_voc_io.py`, `yolo_io.py` and
+`create_ml_io.py`, and carry its notice.
+Licensed under the MIT License
+https://github.com/HumanSignal/labelImg/blob/master/LICENSE
+
 ## Inter
 Copyright 2016 The Inter Project Authors
 Licensed under the SIL Open Font License 1.1

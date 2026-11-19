@@ -1,0 +1,665 @@
+{
+ "bom-yolo/box.png": {
+  "format": "yolo",
+  "shapes": [
+   {
+    "label": "dog",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      24,
+      18
+     ],
+     [
+      40,
+      30
+     ]
+    ],
+    "flags": {}
+   },
+   {
+    "label": "cat",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      12,
+      9
+     ],
+     [
+      20,
+      15
+     ]
+    ],
+    "flags": {}
+   }
+  ]
+ },
+ "bom/createml.png": {
+  "format": "createml",
+  "error": "It isn't valid JSON (Unexpected token '\ufeff', \"\ufeff[{\"image\"\"... is not valid JSON)"
+ },
+ "bom/labelme.png": {
+  "format": "labelme",
+  "error": "It isn't valid JSON (Unexpected token '\ufeff', \"\ufeff{\"shapes\": []}\" is not valid JSON)"
+ },
+ "bom/voc.png": {
+  "format": "voc",
+  "shapes": [
+   {
+    "label": "car",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      10,
+      12
+     ],
+     [
+      40,
+      30
+     ]
+    ],
+    "flags": {}
+   },
+   {
+    "label": "a & <b>",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      1,
+      1
+     ],
+     [
+      64,
+      48
+     ]
+    ],
+    "flags": {
+     "difficult": true
+    }
+   },
+   {
+    "label": "\uace0\uc591\uc774",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      20,
+      5
+     ],
+     [
+      50,
+      40
+     ]
+    ],
+    "flags": {}
+   },
+   {
+    "label": "dog",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      2,
+      3
+     ],
+     [
+      3,
+      9
+     ]
+    ],
+    "flags": {}
+   }
+  ]
+ },
+ "broken/bad-class.png": {
+  "format": "yolo",
+  "error": "Line 1: class 5 isn't in classes.txt"
+ },
+ "broken/createml-annotation.png": {
+  "format": "createml",
+  "error": "Annotation 1 of createml-annotation.png needs a label and coordinates x, y, width and height"
+ },
+ "broken/createml-entry.png": {
+  "format": "createml",
+  "error": "Entry 1 needs an image name and a list of annotations"
+ },
+ "broken/createml-other-entry.png": {
+  "format": "createml",
+  "error": "Entry 1 needs an image name and a list of annotations"
+ },
+ "broken/four-numbers.png": {
+  "format": "yolo",
+  "error": "Line 1 needs a class and four numbers, as YOLO's boxes have"
+ },
+ "broken/labelme.png": {
+  "format": "labelme",
+  "error": "It isn't valid JSON (Unexpected end of JSON input)"
+ },
+ "broken/nan.png": {
+  "format": "labelme",
+  "error": "It isn't valid JSON (Unexpected token 'N', ...\"oints\": [[NaN, 1], [\"... is not valid JSON)"
+ },
+ "broken/no-bndbox.png": {
+  "format": "voc",
+  "error": "Object 1 has no <bndbox>"
+ },
+ "broken/no-label.png": {
+  "format": "labelme",
+  "error": "Shape 1 needs a label"
+ },
+ "broken/not-a-number.png": {
+  "format": "voc",
+  "error": "Object 1 needs a number in <xmin>"
+ },
+ "broken/not-numbers.png": {
+  "format": "yolo",
+  "error": "Line 1 has something that isn't a number"
+ },
+ "broken/not-xml.png": {
+  "format": "voc",
+  "error": "It isn't valid XML: there's text outside the top element"
+ },
+ "broken/oriented-three.png": {
+  "format": "labelme",
+  "error": "Shape 1 is an oriented rectangle, so it needs 4 points"
+ },
+ "broken/unclosed.png": {
+  "format": "voc",
+  "error": "It isn't valid XML: <annotation> is never closed"
+ },
+ "broken/unknown-type.png": {
+  "format": "labelme",
+  "error": "Shape 1 has an unknown shape_type: ellipse"
+ },
+ "broken/wrong-root.png": {
+  "format": "voc",
+  "error": "It isn't a Pascal VOC file: the top element is <annotations>, not <annotation>"
+ },
+ "createml-master/cars.png": {
+  "format": "createml",
+  "shapes": [
+   {
+    "label": "car",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      10.600000000000001,
+      12.200000000000001
+     ],
+     [
+      40.9,
+      30.5
+     ]
+    ],
+    "flags": {}
+   },
+   {
+    "label": "a & <b>",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      0,
+      0
+     ],
+     [
+      64,
+      48
+     ]
+    ],
+    "flags": {}
+   },
+   {
+    "label": "\uace0\uc591\uc774",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      20.100000000000005,
+      5.300000000000001
+     ],
+     [
+      50.2,
+      40.7
+     ]
+    ],
+    "flags": {}
+   },
+   {
+    "label": "dog",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      2,
+      3
+     ],
+     [
+      3,
+      9
+     ]
+    ],
+    "flags": {}
+   }
+  ]
+ },
+ "createml/cars.png": {
+  "format": "createml",
+  "shapes": [
+   {
+    "label": "car",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      10.600000000000001,
+      12.200000000000001
+     ],
+     [
+      40.9,
+      30.5
+     ]
+    ],
+    "flags": {}
+   },
+   {
+    "label": "a & <b>",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      0,
+      0
+     ],
+     [
+      64,
+      48
+     ]
+    ],
+    "flags": {}
+   },
+   {
+    "label": "\uace0\uc591\uc774",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      20.100000000000005,
+      5.300000000000001
+     ],
+     [
+      50.2,
+      40.7
+     ]
+    ],
+    "flags": {}
+   },
+   {
+    "label": "dog",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      2,
+      3
+     ],
+     [
+      3,
+      9
+     ]
+    ],
+    "flags": {}
+   }
+  ]
+ },
+ "createml/empty.png": {
+  "format": "createml",
+  "shapes": []
+ },
+ "createml/grey.png": {
+  "format": "createml",
+  "shapes": [
+   {
+    "label": "cat",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      5.5,
+      6.5
+     ],
+     [
+      25.25,
+      33.75
+     ]
+    ],
+    "flags": {}
+   }
+  ]
+ },
+ "odd/numbers.png": {
+  "format": "yolo",
+  "shapes": [
+   {
+    "label": "cat",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      26,
+      19
+     ],
+     [
+      38,
+      29
+     ]
+    ],
+    "flags": {}
+   },
+   {
+    "label": "cat",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      24,
+      18
+     ],
+     [
+      40,
+      30
+     ]
+    ],
+    "flags": {}
+   },
+   {
+    "label": "dog",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      0,
+      24
+     ],
+     [
+      32,
+      48
+     ]
+    ],
+    "flags": {}
+   }
+  ]
+ },
+ "other/both.png": {
+  "format": "labelme",
+  "shapes": [
+   {
+    "label": "cat",
+    "shape_type": "polygon",
+    "points": [
+     [
+      2,
+      3
+     ],
+     [
+      20,
+      4
+     ],
+     [
+      10,
+      30
+     ]
+    ],
+    "flags": {}
+   }
+  ]
+ },
+ "other/by-hand.png": {
+  "format": "voc",
+  "shapes": [
+   {
+    "label": "cat & dog",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      10.5,
+      20
+     ],
+     [
+      30,
+      40.25
+     ]
+    ],
+    "flags": {
+     "difficult": true
+    }
+   },
+   {
+    "label": "caf\u00e9 & bar&x;",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      16,
+      2
+     ],
+     [
+      30,
+      50
+     ]
+    ],
+    "flags": {}
+   }
+  ]
+ },
+ "other/caption.png": {
+  "format": null
+ },
+ "other/elsewhere.png": {
+  "format": "createml",
+  "shapes": null
+ },
+ "voc/cars.png": {
+  "format": "voc",
+  "shapes": [
+   {
+    "label": "car",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      10,
+      12
+     ],
+     [
+      40,
+      30
+     ]
+    ],
+    "flags": {}
+   },
+   {
+    "label": "a & <b>",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      1,
+      1
+     ],
+     [
+      64,
+      48
+     ]
+    ],
+    "flags": {
+     "difficult": true
+    }
+   },
+   {
+    "label": "\uace0\uc591\uc774",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      20,
+      5
+     ],
+     [
+      50,
+      40
+     ]
+    ],
+    "flags": {}
+   },
+   {
+    "label": "dog",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      2,
+      3
+     ],
+     [
+      3,
+      9
+     ]
+    ],
+    "flags": {}
+   }
+  ]
+ },
+ "voc/empty.png": {
+  "format": "voc",
+  "shapes": []
+ },
+ "voc/grey.png": {
+  "format": "voc",
+  "shapes": [
+   {
+    "label": "cat",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      5,
+      6
+     ],
+     [
+      25,
+      33
+     ]
+    ],
+    "flags": {
+     "difficult": true
+    }
+   }
+  ]
+ },
+ "yolo-hand/half.png": {
+  "format": "yolo",
+  "shapes": [
+   {
+    "label": "dog",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      32,
+      18
+     ],
+     [
+      34,
+      22
+     ]
+    ],
+    "flags": {}
+   },
+   {
+    "label": "cat",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      0,
+      20
+     ],
+     [
+      32,
+      40
+     ]
+    ],
+    "flags": {}
+   }
+  ]
+ },
+ "yolo/cars.png": {
+  "format": "yolo",
+  "shapes": [
+   {
+    "label": "car",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      10,
+      12
+     ],
+     [
+      40,
+      30
+     ]
+    ],
+    "flags": {}
+   },
+   {
+    "label": "a & <b>",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      1,
+      1
+     ],
+     [
+      64,
+      48
+     ]
+    ],
+    "flags": {}
+   },
+   {
+    "label": "\uace0\uc591\uc774",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      20,
+      5
+     ],
+     [
+      50,
+      40
+     ]
+    ],
+    "flags": {}
+   },
+   {
+    "label": "dog",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      2,
+      3
+     ],
+     [
+      3,
+      9
+     ]
+    ],
+    "flags": {}
+   }
+  ]
+ },
+ "yolo/empty.png": {
+  "format": "yolo",
+  "shapes": []
+ },
+ "yolo/grey.png": {
+  "format": "yolo",
+  "shapes": [
+   {
+    "label": "cat",
+    "shape_type": "rectangle",
+    "points": [
+     [
+      5,
+      6
+     ],
+     [
+      25,
+      33
+     ]
+    ],
+    "flags": {}
+   }
+  ]
+ }
+}

@@ -1,0 +1,28 @@
+{
+  "version": "7.9.1",
+  "flags": {},
+  "shapes": [
+    {
+      "label": "b",
+      "points": [
+        [
+          8.4,
+          6.6
+        ],
+        [
+          50.2,
+          30.7
+        ]
+      ],
+      "group_id": null,
+      "description": "",
+      "shape_type": "rectangle",
+      "flags": {},
+      "mask": null
+    }
+  ],
+  "imagePath": "rectangle.png",
+  "imageData": null,
+  "imageHeight": 48,
+  "imageWidth": 64
+}

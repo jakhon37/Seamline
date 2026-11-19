@@ -1,0 +1,90 @@
+{
+  "version": "7.9.1",
+  "flags": {},
+  "shapes": [
+    {
+      "label": "a",
+      "points": [
+        [
+          2.0,
+          2.0
+        ],
+        [
+          60.0,
+          10.0
+        ]
+      ],
+      "group_id": null,
+      "description": "",
+      "shape_type": "line",
+      "flags": {},
+      "mask": null
+    },
+    {
+      "label": "b",
+      "points": [
+        [
+          5.0,
+          20.0
+        ],
+        [
+          30.0,
+          25.0
+        ],
+        [
+          55.0,
+          20.0
+        ],
+        [
+          60.0,
+          40.0
+        ]
+      ],
+      "group_id": null,
+      "description": "",
+      "shape_type": "linestrip",
+      "flags": {},
+      "mask": null
+    },
+    {
+      "label": "c",
+      "points": [
+        [
+          50.5,
+          10.5
+        ]
+      ],
+      "group_id": null,
+      "description": "",
+      "shape_type": "point",
+      "flags": {},
+      "mask": null
+    },
+    {
+      "label": "a",
+      "points": [
+        [
+          5.0,
+          40.0
+        ],
+        [
+          10.0,
+          42.0
+        ],
+        [
+          15.0,
+          44.0
+        ]
+      ],
+      "group_id": null,
+      "description": "",
+      "shape_type": "points",
+      "flags": {},
+      "mask": null
+    }
+  ],
+  "imagePath": "lines_and_points.png",
+  "imageData": null,
+  "imageHeight": 48,
+  "imageWidth": 64
+}
