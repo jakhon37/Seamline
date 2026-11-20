@@ -14,7 +14,12 @@ PACKAGES = [
     "segmentation-models-pytorch", "torchmetrics", "albumentations",
     "opencv-python-headless", "PyYAML", "tqdm", "tensorboard", "scikit-learn", "numpy<2",
 ]
-CHECK = "import segmentation_models_pytorch, torchmetrics, albumentations, cv2, yaml, torch"
+# An environment made before Seamline offered UPerNet and Segformer can have an older smp: it is
+# made again, with the newest
+CHECK = (
+    "import segmentation_models_pytorch as smp, torchmetrics, albumentations, cv2, yaml, torch; "
+    "smp.UPerNet, smp.Segformer"
+)
 LINKED = ["torch", "torchvision"]
 LINKED_PREFIXES = ("torch", "nvidia-", "triton")
 

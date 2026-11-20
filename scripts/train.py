@@ -36,6 +36,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.data import create_dataloaders
 from src.losses import create_loss
 from src.models import create_model
+from src.models.estimate import measure
+from src.models.segmentation import shape_of
 from src.utils import (
     AverageMeter,
     CheckpointManager,
@@ -51,6 +53,19 @@ from src.utils import (
 from src.utils.config_validator import expand_environment_variables, validate_config
 from src.utils.memory_tracker import MemoryTracker
 from src.utils.profiler import TrainingProfiler
+
+
+def set_lr(optimizer, lr: float):
+    for group in optimizer.param_groups:
+        group["lr"] = lr
+
+
+def warmup_lr(base_lr: float, epoch: int, warmup: int):
+    """The rate for an epoch of a warm-up of this many epochs: it climbs in even steps to the
+    rate set, which the epoch after the warm-up starts from. None outside the warm-up."""
+    if epoch >= warmup:
+        return None
+    return base_lr * (epoch + 1) / (warmup + 1)
 
 
 def set_seed(seed: int):
@@ -302,21 +317,42 @@ def main(args):
 
     # Create model
     model_cfg = config["model"]
-    model = create_model(
-        architecture=model_cfg["architecture"],
-        encoder=model_cfg["encoder"],
-        encoder_weights=model_cfg["encoder_weights"],
-        num_classes=model_cfg["num_classes"],
-        # The losses take logits: an activation here would apply softmax twice and floor the loss
-        activation=None,
-        gradient_checkpointing=model_cfg.get("gradient_checkpointing", False),
-    )
+    shape = shape_of(model_cfg)
+    try:
+        model = create_model(
+            architecture=model_cfg["architecture"],
+            encoder=model_cfg["encoder"],
+            encoder_weights=model_cfg["encoder_weights"],
+            num_classes=model_cfg["num_classes"],
+            # The losses take logits: an activation here would apply softmax twice and floor the
+            # loss
+            activation=None,
+            gradient_checkpointing=model_cfg.get("gradient_checkpointing", False),
+            **shape,
+        )
+    except ValueError as error:
+        # Settings the architecture can't take: said as the run's error, not just in the log
+        if is_main_process(rank):
+            emit_event(args.events, type="error", message=str(error))
+        raise SystemExit(f"[Model] {error}") from None
     model = model.to(device)
 
     if is_main_process(rank):
         total_params = sum(p.numel() for p in model.parameters()) / 1e6
         logger.info(f"Model: {model_cfg['architecture']} with {model_cfg['encoder']} encoder")
         logger.info(f"Total parameters: {total_params:.2f}M")
+        if args.events:
+            # What the run costs, for the app to compare runs by: its FLOPs and time per tile
+            # here, measured once before training
+            settings = {
+                "architecture": model_cfg["architecture"],
+                "encoder": model_cfg["encoder"],
+                **shape,
+            }
+            size = config["data"]["image_size"]
+            cost = measure(model, settings, size, model_cfg["num_classes"], device)
+            logger.info(f"{cost['gflops']} GFLOPs and {cost['ms_per_tile']} ms per tile")
+            emit_event(args.events, type="model", **cost)
 
     # Wrap model for distributed training
     if distributed:
@@ -356,8 +392,9 @@ def main(args):
             effective_batch = train_cfg["batch_size"] * world_size * gradient_accumulation_steps
             logger.info(f"Effective batch size: {effective_batch}")
 
-    # Create scheduler
+    # Create scheduler. It takes over once any warm-up is done, so a cosine spans the epochs left.
     sched_cfg = config["scheduler"]
+    warmup = sched_cfg.get("warmup_epochs") or 0
     if sched_cfg["type"] == "reduce_on_plateau":
         scheduler = ReduceLROnPlateau(
             optimizer,
@@ -368,10 +405,15 @@ def main(args):
         )
     elif sched_cfg["type"] == "cosine":
         scheduler = CosineAnnealingLR(
-            optimizer, T_max=train_cfg["epochs"], eta_min=sched_cfg.get("min_lr", 1e-7)
+            optimizer,
+            T_max=max(1, train_cfg["epochs"] - warmup),
+            eta_min=sched_cfg.get("min_lr", 1e-7),
         )
     else:
+        # constant: the rate set, throughout
         scheduler = None
+    if is_main_process(rank):
+        logger.info(f"LR schedule: {sched_cfg['type']}, warm-up {warmup} epochs")
 
     # Create metrics (compute on CPU by default for GPU memory savings)
     metrics = SegmentationMetrics(
@@ -428,6 +470,12 @@ def main(args):
         if distributed:
             train_sampler.set_epoch(epoch)
 
+        rising = warmup_lr(train_cfg["learning_rate"], epoch, warmup)
+        if rising is not None:
+            set_lr(optimizer, rising)
+        elif warmup and epoch == warmup:
+            set_lr(optimizer, train_cfg["learning_rate"])
+
         # Train
         train_loss, train_metrics = train_one_epoch(
             model,
@@ -449,9 +497,9 @@ def main(args):
             model, val_loader, criterion, device, epoch, metrics, distributed, world_size, use_amp
         )
 
-        # Update scheduler
+        # Update scheduler, once the warm-up is over: a plateau isn't a plateau while it climbs
         current_lr = optimizer.param_groups[0]["lr"]
-        if scheduler:
+        if scheduler and epoch >= warmup:
             if isinstance(scheduler, ReduceLROnPlateau):
                 scheduler.step(val_loss)
             else:
