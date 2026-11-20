@@ -1,12 +1,19 @@
-import { ExternalLink, PackageOpen, Play, Plus, RefreshCw, Square } from 'lucide-react'
+import { Copy, ExternalLink, PackageOpen, Play, Plus, RefreshCw, Square, Table2, Timer } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { FORMAT_NAMES, type LabelFormat } from '../../shared/formats'
 import { isLabelled, notClasses } from '../../shared/labels'
-import { type Exported, type LabelClass, type OpenProject, PALETTE, type Run, type TrainEvent } from './types'
+import {
+  architecture, ARCHITECTURES, AUGMENTATIONS, DECODER_WIDTHS, ENCODERS, fitArchitecture, fromRun, LOSSES, PRESETS, problem,
+  SCHEDULERS, type Size, sizeOf, takes, type TrainOptions, weightsOf
+} from '../../shared/models'
+import { type Estimate, type Exported, type LabelClass, type OpenProject, PALETTE, type Run, type TrainEvent } from './types'
 
-const ARCHS = ['Unet', 'UnetPlusPlus', 'DeepLabV3', 'DeepLabV3Plus', 'FPN', 'PSPNet', 'PAN', 'Linknet', 'MAnet']
-const ENCODERS = ['resnet18', 'resnet34', 'resnet50', 'efficientnet-b0', 'efficientnet-b4', 'mobilenet_v2', 'densenet121']
-const LOSSES = ['combined', 'focal', 'dice', 'cross_entropy']
+const DEFAULTS: TrainOptions = {
+  ...PRESETS.balanced.options,
+  encoder_weights: 'imagenet', epochs: 30, batch_size: 8, image_size: 512, learning_rate: 0.0001, val_split: 0.2, tile: 1024,
+  num_workers: 4
+}
+const SIZES: Size[] = ['fast', 'balanced', 'accurate', 'custom']
 // Shapes with no area, which a segmentation mask can't hold
 const NO_AREA: Record<string, [string, string]> = {
   line: ['line', 'lines'], linestrip: ['line strip', 'line strips'], point: ['point', 'points'], points: ['point set', 'point sets']
@@ -93,11 +100,81 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return <label className="field"><span>{label}</span>{children}</label>
 }
 
+const millions = (n: number) => `${(n / 1e6).toFixed(1)} M`
+const gigabytes = (bytes: number) => `${(bytes / 1e9).toFixed(1)} GB`
+const milliseconds = (ms: number) => (ms >= 100 ? `${Math.round(ms)} ms` : `${ms.toFixed(1)} ms`)
+// Runs are named by when they started: 20261120_101500
+const runDate = (name: string) => name.replace(/^(\d{4})(\d\d)(\d\d)_(\d\d)(\d\d)\d\d$/, '$1-$2-$3 $4:$5')
+const widthName = (w: number) => (w === 1 ? '1× (its own)' : `${w}×`)
+
+/** A run's network in a few words: what differs from the architecture's own is named */
+function describe(options: any) {
+  if (!options) return 'Unknown model'
+  const parts = [options.architecture, options.encoder]
+  const own = architecture(options.architecture)?.depth
+  if (options.encoder_depth != null && options.encoder_depth !== own) parts.push(`depth ${options.encoder_depth}`)
+  if (options.decoder_width != null && options.decoder_width !== 1) parts.push(`decoder ${options.decoder_width}×`)
+  if (options.decoder_attention_type) parts.push(options.decoder_attention_type === 'scse' ? 'scSE' : options.decoder_attention_type)
+  return parts.filter(Boolean).join(' · ')
+}
+
+// An error from the main process, without the wrapping Electron gives it on the way
+const reason = (e: any) => String(e?.message ?? e).replace(/^Error invoking remote method '[^']*': (Error: )?/, '')
+
+// Estimates already made, by what was asked: the machine doesn't change while the app runs
+const estimated = new Map<string, Estimate>()
+type Shown = { key: string; estimate?: Estimate; error?: string; timing?: boolean }
+
+/**
+ * The engine's estimate for the settings, kept current as they change: sizes first, as they take a moment, then the time
+ * per tile when `timing`. One at a time, the last settings asked for next; `again` asks anew when it changes.
+ */
+function useEstimate(request: Record<string, unknown> | null, timing: boolean, again: unknown) {
+  const key = request ? JSON.stringify(request) : null
+  const [shown, setShown] = useState<Shown | null>(null)
+  const wanted = useRef<{ key: string | null; timing: boolean }>({ key: null, timing })
+  const busy = useRef(false)
+  const pump = useRef<() => Promise<void>>()
+  pump.current = async () => {
+    const job = wanted.current
+    if (busy.current || !job.key) return
+    busy.current = true
+    const k = job.key
+    const show = (s: Shown) => { if (wanted.current.key === k) setShown(s) }
+    const ask = async (time: boolean) => {
+      const cached = estimated.get(`${time}${k}`)
+      if (cached) return cached
+      const answer = await window.api.estimateModel(JSON.parse(k), time, null)
+      // A time taken while a run had the CPU isn't kept
+      if (!answer.busy) estimated.set(`${time}${k}`, answer)
+      return answer
+    }
+    try {
+      const sizes = estimated.get(`true${k}`) ?? await ask(false)
+      show({ key: k, estimate: sizes, timing: job.timing && sizes.ms_per_tile == null })
+      if (job.timing && sizes.ms_per_tile == null && wanted.current.key === k) show({ key: k, estimate: await ask(true) })
+    } catch (e: any) {
+      show({ key: k, error: reason(e) })
+    } finally {
+      busy.current = false
+      if (wanted.current !== job) pump.current?.()
+    }
+  }
+  useEffect(() => {
+    wanted.current = { key, timing }
+    if (!key) return
+    const timer = setTimeout(() => pump.current?.(), 300)
+    return () => clearTimeout(timer)
+  }, [key, timing, again])
+  return { shown, current: !!shown && shown.key === key }
+}
+
 export default function Trainer({ data, active, onError, onTraining, changeClasses, onSeamtag, seamtagStarting }: Props) {
-  const [options, setOptions] = useState({
-    architecture: 'Unet', encoder: 'resnet34', encoder_weights: 'imagenet', loss: 'combined',
-    epochs: 30, batch_size: 8, image_size: 512, learning_rate: 0.0001, val_split: 0.2, tile: 1024, num_workers: 4
-  })
+  const [options, setOptions] = useState<TrainOptions>(DEFAULTS)
+  // Chosen, or Custom once an advanced setting is changed by hand
+  const [size, setSize] = useState<Size>('balanced')
+  const [advanced, setAdvanced] = useState(false)
+  const [comparing, setComparing] = useState(false)
   const [runs, setRuns] = useState<Run[]>([])
   const [current, setCurrent] = useState<string | null>(null)
   const [running, setRunning] = useState<string | null>(null)
@@ -115,11 +192,36 @@ export default function Trainer({ data, active, onError, onTraining, changeClass
   const [host, setHost] = useState(stored('trainHost', ''))
   const [dir, setDir] = useState(stored('trainDir', 'seamline'))
   const [remote, setRemote] = useState<string>('')
+  const [there, setThere] = useState<Shown | null>(null)
   const [exporting, setExporting] = useState<string | null>(null)
   const [exported, setExported] = useState<Record<string, Exported>>({})
   const logRef = useRef<HTMLPreElement>(null)
 
-  const set = (key: string, value: unknown) => setOptions((o) => ({ ...o, [key]: value }))
+  const set = (key: keyof TrainOptions, value: unknown) => setOptions((o) => ({ ...o, [key]: value }))
+  // A setting a model size sets, changed by hand
+  const tune = (key: keyof TrainOptions, value: unknown) => {
+    setSize('custom')
+    setOptions((o) => (key === 'architecture' ? fitArchitecture(o, value as string, o.architecture) : { ...o, [key]: value }))
+  }
+  const choose = (chosen: Size) => {
+    if (chosen === 'custom') return setAdvanced(true)
+    setSize(chosen)
+    setOptions((o) => ({ ...o, ...PRESETS[chosen].options }))
+  }
+  // A run's settings back in the form, to train a variant of it, and where it trained
+  const duplicate = (run: Run) => {
+    const copied = fromRun(run.options, DEFAULTS)
+    setOptions(copied)
+    setSize(sizeOf(copied))
+    const target = run.options?.target
+    if (target?.host) {
+      setWhere('ssh')
+      setHost(target.host)
+      setDir(target.dir ?? dir)
+    } else {
+      setWhere('local')
+    }
+  }
   const reload = async () => {
     const list = await window.api.listRuns()
     setRuns(list)
@@ -224,6 +326,51 @@ export default function Trainer({ data, active, onError, onTraining, changeClass
     }
   }
 
+  // The model the form describes, as it would train here or on the GPU machine. Settings that can't train aren't estimated.
+  const blocked = problem(options)
+  const request = active && !blocked
+    ? {
+        architecture: options.architecture, encoder: options.encoder, encoder_depth: options.encoder_depth,
+        decoder_width: options.decoder_width, decoder_attention_type: options.decoder_attention_type,
+        image_size: options.image_size, batch_size: options.batch_size, num_classes: data.project.classes.length + 1
+      }
+    : null
+  const { shown, current: fresh } = useEstimate(request, where === 'local', running)
+  const estimate = shown?.estimate
+  const thereKey = request ? JSON.stringify({ ...request, host, dir }) : null
+  const timedThere = there?.key === thereKey ? there : null
+  // Timed on the GPU machine itself, only when asked: it sends the code there first, as training does
+  const timeThere = async () => {
+    const key = thereKey!
+    setThere({ key, timing: true })
+    try {
+      setThere({ key, estimate: await window.api.estimateModel(request, true, { host, dir }) })
+    } catch (e: any) {
+      setThere({ key, error: reason(e) })
+    }
+  }
+  const info = architecture(options.architecture) ?? architecture('Unet')!
+  const weights = weightsOf(options.encoder)
+  const hereTime = estimate?.ms_per_tile != null
+    ? `${milliseconds(estimate.ms_per_tile)} · ${estimate.device}`
+    : estimate?.busy ? 'after the run' : shown?.timing ? 'timing…' : '–'
+  const thereTime = timedThere?.estimate?.ms_per_tile != null
+    ? `${milliseconds(timedThere.estimate.ms_per_tile)} · ${timedThere.estimate.device}`
+    : timedThere?.timing ? 'timing…' : '–'
+
+  // Each run's network and costs as measured when it started, and how well it did. Runs from before runs measured
+  // themselves have no costs.
+  const compared = useMemo(() => runs.map((r) => {
+    const cost = r.events.find((e) => e.type === 'model')
+    const done = r.events.filter((e) => e.type === 'epoch')
+    return {
+      name: r.name, network: describe(r.options), input: cost?.image_size ?? r.options?.image_size ?? null,
+      params: cost?.params ?? null, ms: cost?.ms_per_tile ?? null, device: cost?.device ?? null,
+      iou: done.length ? Math.max(...done.map((e) => e.iou)) : null
+    }
+  }), [runs])
+  const topIou = Math.max(...compared.map((row) => row.iou ?? -1))
+
   const selected = runs.find((r) => r.name === current)
   const events: TrainEvent[] = selected?.events ?? []
   const epochs = useMemo(() => events.filter((e) => e.type === 'epoch'), [events])
@@ -245,27 +392,53 @@ export default function Trainer({ data, active, onError, onTraining, changeClass
     <div className="trainer">
       <aside className="panel left wide">
         <h3>New training run</h3>
-        <Field label="Architecture">
-          <select value={options.architecture} onChange={(e) => set('architecture', e.target.value)}>
-            {ARCHS.map((a) => <option key={a}>{a}</option>)}
-          </select>
-        </Field>
-        <Field label="Encoder">
-          <select value={options.encoder} onChange={(e) => set('encoder', e.target.value)}>
-            {ENCODERS.map((a) => <option key={a}>{a}</option>)}
-          </select>
-        </Field>
-        <Field label="Loss">
-          <select value={options.loss} onChange={(e) => set('loss', e.target.value)}>
-            {LOSSES.map((a) => <option key={a}>{a}</option>)}
-          </select>
-        </Field>
+        <div className="field">
+          <span id="model-size">Model size</span>
+          <div className="seg small sizes" role="radiogroup" aria-labelledby="model-size">
+            {SIZES.map((s) => (
+              <button key={s} role="radio" aria-checked={size === s} className={size === s ? 'on' : ''} onClick={() => choose(s)}
+                title={s === 'custom' ? 'Your own settings, under Advanced' : `${PRESETS[s].options.architecture} on ${PRESETS[s].options.encoder}`}>
+                {s === 'custom' ? 'Custom' : PRESETS[s].label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className={`estimate ${fresh || blocked ? '' : 'stale'}`} data-testid="estimate">
+          <div><span>Network</span><b>{describe(options)}</b></div>
+          {blocked ? (
+            <p className="warn" data-testid="problem">{blocked}</p>
+          ) : shown?.error && fresh ? (
+            <p className="warn">It can't be estimated: {shown.error}</p>
+          ) : (
+            <>
+              <div><span>Parameters</span><b data-testid="params">{estimate ? millions(estimate.params) : '…'}</b></div>
+              <div><span>Work a tile</span><b>{estimate ? `${estimate.gflops.toFixed(1)} GFLOPs` : '…'}</b></div>
+              <div title={where === 'ssh'
+                ? 'Weights, gradients, optimiser state and the tensors kept for the backward pass, at 16 bits where mixed precision keeps them so'
+                : 'Weights, gradients, optimiser state and the tensors kept for the backward pass, in 32-bit floats'}>
+                <span>{where === 'ssh' ? 'GPU memory' : 'Memory'} at batch {options.batch_size}</span>
+                <b>{estimate ? `≈ ${gigabytes(where === 'ssh' ? estimate.memory.mixed : estimate.memory.float32)}` : '…'}</b>
+              </div>
+              {where === 'local'
+                ? <div><span>Time a tile here</span><b data-testid="time-here">{hereTime}</b></div>
+                : <div><span>Time a tile there</span><b data-testid="time-there">{thereTime}</b></div>}
+            </>
+          )}
+        </div>
+        {where === 'ssh' && !blocked && (
+          <>
+            <button className="ghost" onClick={timeThere} disabled={!host || !request || !!timedThere?.timing}>
+              <Timer size={15} /> {timedThere?.timing ? `Timing on ${host}…` : `Time a tile on ${host || 'the GPU machine'}`}
+            </button>
+            {timedThere?.error && <p className="warn">It couldn't be timed there: {timedThere.error}</p>}
+          </>
+        )}
         <div className="row">
           <Field label="Epochs"><input type="number" min={1} value={options.epochs} onChange={(e) => set('epochs', +e.target.value)} /></Field>
-          <Field label="Batch"><input type="number" min={1} value={options.batch_size} onChange={(e) => set('batch_size', +e.target.value)} /></Field>
+          <Field label="Batch"><input type="number" min={info.minBatch} value={options.batch_size} onChange={(e) => set('batch_size', +e.target.value)} /></Field>
         </div>
         <div className="row">
-          <Field label="Input size"><input type="number" step={32} min={32} value={options.image_size} onChange={(e) => set('image_size', +e.target.value)} /></Field>
+          <Field label="Input size"><input type="number" step={32} min={info.minSize} value={options.image_size} onChange={(e) => set('image_size', +e.target.value)} /></Field>
           <Field label="Learning rate"><input type="number" step={0.0001} min={0} value={options.learning_rate} onChange={(e) => set('learning_rate', +e.target.value)} /></Field>
         </div>
         <div className="row">
@@ -277,6 +450,80 @@ export default function Trainer({ data, active, onError, onTraining, changeClass
             onChange={(e) => set('encoder_weights', e.target.checked ? 'imagenet' : null)} />
           Start from ImageNet weights
         </label>
+        {options.encoder_weights === 'imagenet' && weights && (
+          <p className="muted note" data-testid="weights">{options.encoder}'s ImageNet weights: {weights.weights}, {weights.licence}</p>
+        )}
+        <details className="advanced" open={advanced} onToggle={(e) => setAdvanced(e.currentTarget.open)}>
+          <summary>Advanced</summary>
+          <Field label="Architecture">
+            <select value={options.architecture} onChange={(e) => tune('architecture', e.target.value)}>
+              {ARCHITECTURES.map((a) => <option key={a}>{a}</option>)}
+            </select>
+          </Field>
+          <Field label="Encoder">
+            <select value={options.encoder} onChange={(e) => tune('encoder', e.target.value)}>
+              {ENCODERS.map((name) => (
+                <option key={name} disabled={!takes(options.architecture, name)}>{name}</option>
+              ))}
+            </select>
+          </Field>
+          <div className="row">
+            <Field label="Encoder depth">
+              <select value={options.encoder_depth} onChange={(e) => tune('encoder_depth', +e.target.value)}>
+                {info.depths.map((d) => <option key={d} value={d}>{d === info.depth ? `${d} (its own)` : d}</option>)}
+              </select>
+            </Field>
+            <Field label="Decoder width">
+              <select value={options.decoder_width} disabled={!info.decoderWidth} onChange={(e) => tune('decoder_width', +e.target.value)}>
+                {DECODER_WIDTHS.map((w) => (
+                  <option key={w} value={w} disabled={!!options.decoder_attention_type && w < (info.attentionMinWidth ?? 0)}>
+                    {widthName(w)}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+          <Field label="Attention">
+            <select value={options.decoder_attention_type ?? ''} disabled={!info.attention.length}
+              onChange={(e) => tune('decoder_attention_type', e.target.value || null)}>
+              <option value="">None</option>
+              {info.attention.map((a) => (
+                <option key={a} value={a} disabled={options.decoder_width < (info.attentionMinWidth ?? 0)}>
+                  {a === 'scse' ? 'scSE, on channels and space' : a}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <div className="row">
+            <Field label="Loss">
+              <select value={options.loss} onChange={(e) => tune('loss', e.target.value)}>
+                {LOSSES.map((a) => <option key={a}>{a}</option>)}
+              </select>
+            </Field>
+            <Field label="Augmentation">
+              <select value={options.augmentation} onChange={(e) => tune('augmentation', e.target.value)}>
+                {AUGMENTATIONS.map((a) => <option key={a} value={a}>{a[0].toUpperCase() + a.slice(1)}</option>)}
+              </select>
+            </Field>
+          </div>
+          <Field label="Learning-rate schedule">
+            <select value={options.scheduler} onChange={(e) => tune('scheduler', e.target.value)}>
+              {Object.entries(SCHEDULERS).map(([value, name]) => <option key={value} value={value}>{name}</option>)}
+            </select>
+          </Field>
+          <div className="row">
+            <Field label="Warm-up epochs">
+              <input type="number" min={0} value={options.warmup_epochs} onChange={(e) => tune('warmup_epochs', +e.target.value)} />
+            </Field>
+            <Field label="Seed">
+              <input type="number" min={0} value={options.seed} onChange={(e) => tune('seed', +e.target.value)} />
+            </Field>
+          </div>
+          <Field label="Early-stopping patience, epochs">
+            <input type="number" min={1} value={options.early_stopping_patience}
+              onChange={(e) => tune('early_stopping_patience', +e.target.value)} />
+          </Field>
+        </details>
         <Field label="Run on">
           <select value={where} onChange={(e) => setWhere(e.target.value)}>
             <option value="local">This computer</option>
@@ -294,7 +541,7 @@ export default function Trainer({ data, active, onError, onTraining, changeClass
         {running ? (
           <button className="primary danger" onClick={() => window.api.stopTraining()}><Square size={15} /> Stop training</button>
         ) : (
-          <button className="primary" onClick={start} disabled={starting || labelled < 2 || (where === 'ssh' && !host)}>
+          <button className="primary" onClick={start} disabled={starting || labelled < 2 || (where === 'ssh' && !host) || !!blocked}>
             <Play size={15} /> {starting ? 'Preparing dataset…' : `Train on ${labelled} labelled images`}
           </button>
         )}
@@ -337,6 +584,43 @@ export default function Trainer({ data, active, onError, onTraining, changeClass
       </aside>
 
       <main className="results">
+        {comparing && runs.length > 0 && (
+          <section className="card compare" data-testid="compare">
+            <header><h3>Runs compared</h3></header>
+            <table>
+              <thead>
+                <tr>
+                  <th>Started</th><th>Network</th><th className="num">Input</th><th className="num">Parameters</th>
+                  <th className="num">Time a tile</th><th className="num">Best IoU</th>
+                </tr>
+              </thead>
+              <tbody>
+                {compared.map((row) => (
+                  <tr key={row.name} className={row.name === current ? 'on' : ''} onClick={() => setCurrent(row.name)}>
+                    <td>{runDate(row.name)}</td>
+                    <td>{row.network}</td>
+                    <td className="num">{row.input ? `${row.input} px` : '–'}</td>
+                    <td className="num">{row.params != null ? millions(row.params) : '–'}</td>
+                    <td className="num" title={row.device ?? undefined}>
+                      {row.ms != null ? <>{milliseconds(row.ms)} <span className="muted">{row.device}</span></> : '–'}
+                    </td>
+                    <td className={`num ${row.iou != null && row.iou === topIou ? 'top' : ''}`}>{row.iou != null ? row.iou.toFixed(3) : '–'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+        )}
+        {selected && (
+          <div className="run-head">
+            <span className="what"><b data-testid="run-network">{describe(selected.options)}</b>
+              <span className="muted"> · {selected.options?.image_size ? `${selected.options.image_size} px · ` : ''}{runDate(selected.name)}</span>
+            </span>
+            <button className="ghost" onClick={() => duplicate(selected)} title="Put this run's settings in the form, to train a variant of it">
+              <Copy size={15} /> Duplicate
+            </button>
+          </div>
+        )}
         <div className="tiles">
           <div className="tile"><span>Status</span>
             <b>{failure ? 'Failed' : isRunning ? 'Training' : events.some((e) => e.type === 'done') ? 'Finished' : selected ? 'Stopped' : '–'}</b></div>
@@ -383,14 +667,17 @@ export default function Trainer({ data, active, onError, onTraining, changeClass
       </main>
 
       <aside className="panel right">
-        <h3>Runs</h3>
+        <h3>Runs
+          <button className={`icon ${comparing ? 'on' : ''}`} onClick={() => setComparing((c) => !c)} disabled={!runs.length}
+            aria-pressed={comparing} aria-label="Compare runs" title="Compare runs"><Table2 size={14} /></button>
+        </h3>
         <div className="shapes">
           {runs.map((r) => {
             const done = r.events.filter((e) => e.type === 'epoch')
             const top = done.length ? Math.max(...done.map((e) => e.iou)) : null
             return (
               <button key={r.name} className={`run ${r.name === current ? 'on' : ''}`} onClick={() => setCurrent(r.name)}>
-                <span className="name">{r.options?.architecture} · {r.options?.encoder}</span>
+                <span className="name" title={describe(r.options)}>{describe(r.options)}</span>
                 <span className="muted">{r.name.replace('_', ' ')}{r.options?.target ? ` · ${r.options.target.host}` : ''}</span>
                 <span className="muted">{r.name === running ? 'running' : top !== null ? `IoU ${top.toFixed(3)}` : 'no result'}</span>
               </button>

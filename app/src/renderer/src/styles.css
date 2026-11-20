@@ -124,9 +124,9 @@ canvas.tool-polygon, canvas.tool-rectangle, canvas.tool-brush, canvas.tool-erase
 .row { display: flex; gap: 8px; }
 .check { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
 .check input { width: auto; accent-color: var(--accent); }
-.kv div { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; border-bottom: 1px solid var(--line); }
-.kv span { color: var(--muted); }
-.kv b { font-weight: 550; font-variant-numeric: tabular-nums; text-align: right; }
+.kv div, .estimate div { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; border-bottom: 1px solid var(--line); }
+.kv span, .estimate span { color: var(--muted); }
+.kv b, .estimate b { font-weight: 550; font-variant-numeric: tabular-nums; text-align: right; }
 .results { flex: 1; min-width: 0; padding: 12px; display: flex; flex-direction: column; gap: 12px; overflow: auto; }
 .tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
 .tile b.fit { font-size: 14px; line-height: 30px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -148,3 +148,33 @@ canvas.tool-polygon, canvas.tool-rectangle, canvas.tool-brush, canvas.tool-erase
 .logs pre { flex: 1; margin: 0; min-height: 0; overflow: auto; font: 11.5px/1.5 ui-monospace, monospace; color: var(--muted); white-space: pre-wrap; }
 .run { display: flex; flex-direction: column; padding: 7px 8px; border-radius: 6px; text-align: left; flex: none; }
 .run .muted { font-size: 12px; }
+.run { width: 100%; min-width: 0; }
+.run > span { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Train page: model size, its estimate, the advanced settings, and runs side by side */
+.sizes button { font-size: 12px; text-transform: none; }
+.seg.small.sizes button.on { background: var(--accent); color: #fff; }
+.estimate { transition: opacity .15s; }
+.estimate.stale { opacity: .55; }
+.estimate b { min-width: 0; overflow-wrap: anywhere; }
+.estimate .warn { margin: 4px 0 0; }
+.panel .note { font-size: 12px; margin: -4px 0 0; }
+.advanced { border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; }
+.advanced[open] { padding-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
+.advanced summary { cursor: pointer; padding: 7px 0; color: var(--muted); font-weight: 550; list-style: none; display: flex; align-items: center; gap: 6px; }
+.advanced summary::-webkit-details-marker { display: none; }
+.advanced summary::before { content: '▸'; font-size: 11px; transition: transform .15s; }
+.advanced[open] summary::before { transform: rotate(90deg); }
+.advanced summary:hover { color: var(--text); }
+.icon.on { background: var(--raised); color: var(--text); }
+.run-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; flex: none; }
+.run-head .what { min-width: 0; }
+.compare { flex: none; overflow-x: auto; }
+.compare table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.compare th { text-align: left; color: var(--muted); font-weight: 600; font-size: 12px; }
+.compare th, .compare td { padding: 5px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.compare .num { text-align: right; }
+.compare tbody tr { cursor: pointer; }
+.compare tbody tr:hover { background: var(--raised); }
+.compare tbody tr.on { background: #24395f; }
+.compare td.top { color: var(--ok); font-weight: 600; }
+.compare td .muted { font-size: 11px; }

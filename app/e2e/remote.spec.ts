@@ -40,10 +40,11 @@ test('train on a remote GPU, survive opening another folder and closing the app,
   await page.getByLabel('Remote folder').fill(REMOTE)
   await page.getByRole('button', { name: 'Test connection' }).click()
   await expect(page.getByTestId('remote-status')).toContainText('GB free', { timeout: 30000 })
-  await page.getByLabel('Epochs').fill('120')
+  await page.getByLabel('Epochs', { exact: true }).fill('120')
   await page.getByLabel('Batch').fill('4')
   await page.getByLabel('Input size').fill('128')
-  await page.getByLabel('Encoder').selectOption('resnet18')
+  // Unet on resnet18
+  await page.getByRole('radio', { name: 'Fast' }).click()
   await page.getByLabel('Learning rate').fill('0.001')
   await page.getByLabel('Start from ImageNet weights').uncheck()
   await page.getByRole('button', { name: /Train on 10 labelled/ }).click()
@@ -98,7 +99,7 @@ test('train on a remote GPU, survive opening another folder and closing the app,
 
   // Stop reaches the remote process, and nothing stays on its disk
   await page.keyboard.press('Control+2')
-  await page.getByLabel('Epochs').fill('500')
+  await page.getByLabel('Epochs', { exact: true }).fill('500')
   await page.getByRole('button', { name: /Train on 10 labelled/ }).click()
   await expect(page.getByRole('button', { name: /Stop training/ })).toBeVisible({ timeout: 300000 })
   await page.getByRole('button', { name: /Stop training/ }).click()

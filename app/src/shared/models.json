@@ -1,0 +1,43 @@
+{
+  "about": "The networks the Train page offers. Every architecture and encoder pair here, with each depth, decoder width and attention it lists, is built, trained a step, exported to ONNX and checked in onnxruntime by tests/unit/test_model_choices.py, which reads this file. depth is smp's own encoder depth for the architecture: FPN's and PSPNet's heads upsample by a fixed factor, so they keep it. minBatch and minSize are the smallest batch and input each trains on (below 64 px the deepest features are a single pixel, which BatchNorm cannot train on one image at a time), and without lists the encoders it can't be built on. scSE attention squeezes a decoder block's channels 16 to 1, so it needs a decoder at least attentionMinWidth times as wide as smp's.",
+  "architectures": {
+    "Unet": { "depth": 5, "depths": [3, 4, 5], "decoderWidth": true, "attention": ["scse"], "attentionMinWidth": 1, "minBatch": 1, "minSize": 64, "without": [] },
+    "UnetPlusPlus": { "depth": 5, "depths": [3, 4, 5], "decoderWidth": true, "attention": ["scse"], "attentionMinWidth": 1, "minBatch": 1, "minSize": 64, "without": [] },
+    "MAnet": { "depth": 5, "depths": [3, 4, 5], "decoderWidth": true, "attention": [], "minBatch": 1, "minSize": 64, "without": [] },
+    "Linknet": { "depth": 5, "depths": [3, 4, 5], "decoderWidth": false, "attention": [], "minBatch": 1, "minSize": 64, "without": [] },
+    "FPN": { "depth": 5, "depths": [5], "decoderWidth": true, "attention": [], "minBatch": 1, "minSize": 64, "without": [] },
+    "PSPNet": { "depth": 3, "depths": [3], "decoderWidth": true, "attention": [], "minBatch": 1, "minSize": 64, "without": [] },
+    "PAN": { "depth": 5, "depths": [3, 4, 5], "decoderWidth": true, "attention": [], "minBatch": 2, "minSize": 128, "without": ["densenet121"] },
+    "DeepLabV3": { "depth": 5, "depths": [3, 4, 5], "decoderWidth": true, "attention": [], "minBatch": 2, "minSize": 64, "without": ["densenet121"] },
+    "DeepLabV3Plus": { "depth": 5, "depths": [3, 4, 5], "decoderWidth": true, "attention": [], "minBatch": 2, "minSize": 64, "without": ["densenet121"] },
+    "UPerNet": { "depth": 5, "depths": [3, 4, 5], "decoderWidth": true, "attention": [], "minBatch": 2, "minSize": 64, "without": [] },
+    "Segformer": { "depth": 5, "depths": [3, 4, 5], "decoderWidth": true, "attention": [], "minBatch": 1, "minSize": 64, "without": [] }
+  },
+  "encoders": {
+    "resnet18": { "family": "ResNet", "weights": "torchvision", "licence": "BSD-3-Clause" },
+    "resnet34": { "family": "ResNet", "weights": "torchvision", "licence": "BSD-3-Clause" },
+    "resnet50": { "family": "ResNet", "weights": "torchvision", "licence": "BSD-3-Clause" },
+    "efficientnet-b0": { "family": "EfficientNet", "weights": "EfficientNet-PyTorch", "licence": "Apache-2.0" },
+    "efficientnet-b4": { "family": "EfficientNet", "weights": "EfficientNet-PyTorch", "licence": "Apache-2.0" },
+    "mobilenet_v2": { "family": "MobileNet", "weights": "torchvision", "licence": "BSD-3-Clause" },
+    "densenet121": { "family": "DenseNet", "weights": "Cadene pretrained-models", "licence": "BSD-3-Clause" }
+  },
+  "decoderWidths": [0.5, 1, 1.5, 2],
+  "recipe": {
+    "architecture": "Unet",
+    "encoder_depth": 5,
+    "decoder_width": 1,
+    "decoder_attention_type": null,
+    "loss": "combined",
+    "scheduler": "reduce_on_plateau",
+    "warmup_epochs": 0,
+    "augmentation": "standard",
+    "seed": 42,
+    "early_stopping_patience": 50
+  },
+  "presets": {
+    "fast": { "label": "Fast", "encoder": "resnet18" },
+    "balanced": { "label": "Balanced", "encoder": "resnet34" },
+    "accurate": { "label": "Accurate", "encoder": "resnet50" }
+  }
+}

@@ -60,8 +60,13 @@ exec "$REAL_PYTHON" "$@"
 `
 }
 
-// Called as: python -u engine/studio.py train PROJECT --options JSON --prepared --run NAME
+// Called as: python -u engine/studio.py train PROJECT --options JSON --prepared --run NAME. An estimate,
+// python engine/studio.py estimate --options JSON, is the real engine's, from the code sent there.
 const TRAINER = `#!/bin/sh
+if [ "$2" = estimate ]; then
+  printf '%s\\n' "$*" >> ../../estimates
+  exec "$REAL_PYTHON" "$@"
+fi
 run="$4/.myseg/runs/$9"
 i=0
 until [ -e "$4/end" ] || [ -e "$4/crash" ] || [ $i -ge 1800 ]; do
@@ -114,6 +119,10 @@ export function fakeGpu(base: string) {
       rmSync(path.join(home, 'hold'), { force: true })
       rmSync(path.join(home, 'held'), { force: true })
     },
+    // What the engine sent there was asked to estimate, one line each
+    estimates: () => existsSync(path.join(home, 'estimates'))
+      ? readFileSync(path.join(home, 'estimates'), 'utf8').split('\n').filter(Boolean)
+      : [],
     fail: (pattern: string) => writeFileSync(path.join(home, 'fail'), pattern),
     recover: () => rmSync(path.join(home, 'fail')),
     polls: () => existsSync(path.join(home, 'commands'))

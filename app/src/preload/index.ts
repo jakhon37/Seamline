@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld('api', {
   exportModel: (run: string) => ipc.invoke('model:export', run),
   startTraining: (options: unknown, target: unknown) => ipc.invoke('train:start', options, target),
   checkRemote: (host: string, dir: string) => ipc.invoke('remote:check', host, dir),
+  estimateModel: (options: unknown, time: boolean, target: unknown) => ipc.invoke('model:estimate', options, time, target),
   stopTraining: () => ipc.invoke('train:stop'),
   activeRun: () => ipc.invoke('train:active'),
   checkDataset: (val: number, tile: number) => ipc.invoke('dataset:check', val, tile),
