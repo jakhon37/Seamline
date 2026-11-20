@@ -22,11 +22,14 @@
 Label some images, train, let the model label the rest, review what it proposed, least certain first, and train again on what you accepted. It all stays on your own machines: labels are plain LabelMe files beside your images, and training runs on this computer or on your GPU machine over SSH.
 
 - **Review ordered by uncertainty.** Every proposed shape gets a confidence score, and you can work through the least certain first, accepting, rejecting or skipping by keyboard.
+- **A model sized to the job.** Pick Fast, Balanced or Accurate, or choose among 11 architectures and 7 pretrained encoders under Advanced, and see its parameters, work per tile, training memory and speed before it trains. Runs line up in a table to compare, and Duplicate starts a variant of one.
 - **Detached remote training.** A run on your GPU machine keeps going if you close the app or lose the connection, and the app picks it back up.
 - **Tile pyramids for large images.** The viewer draws only the tiles on screen, from a pyramid built once with libvips.
 - **mySegLib underneath.** Training goes through the library in this repo, built on PyTorch and segmentation_models_pytorch. It also works on its own, with 11 architectures, multi-GPU DDP, chunked inference and ONNX export.
 
-Seamline pairs with [Seamtag](https://github.com/jakhon37/Seamtag), a label-only app with labelme's and LabelImg's tools and AI that outlines objects from a click or a box. Seamline trains on every shape with an area that Seamtag saves whose label is one of its classes, in the folder and its subfolders: polygons, rectangles, rotated boxes, circles and masks in LabelMe JSON, and boxes in Pascal VOC, YOLO and CreateML. Labels new to the folder join the classes with **Add as classes** on the Train page. Seamline's own editor is simpler: it reshapes polygons and rectangles, and keeps every other shape intact. **Label in Seamtag** opens the folder in Seamtag's fuller editor, and **Export for Seamtag** gives Seamtag a trained run to pre-label with. With Seamtag 3.3 or later, both apps can have one folder open at once without writing over each other's labels or classes.
+Seamline pairs with [Seamtag](https://github.com/jakhon37/Seamtag), a labelling app for Windows, macOS and Linux. Seamtag has labelme's and LabelImg's tools, AI that outlines an object from a click or a box (SAM2 and EfficientSAM) or finds objects by name (YOLO-World), a check of a whole folder's labels, and COCO and Ultralytics YOLO export and import. Seamline trains on every shape with an area that Seamtag saves whose label is one of its classes, in the folder and its subfolders: polygons, rectangles, rotated boxes, circles and masks in LabelMe JSON, and boxes in Pascal VOC, YOLO and CreateML. Labels new to the folder join the classes with **Add as classes** on the Train page.
+
+Seamline's own editor is simpler: it reshapes polygons and rectangles, and keeps every other shape intact. **Label in Seamtag** opens the folder in Seamtag on the image you're on. **Export for Seamtag** writes a trained run as ONNX, and Seamtag lists it under AI → Model for pre-labelling, so either app can pre-label with it, and both propose the same shapes. With Seamtag 3.3 or later, both apps can have one folder open at once without writing over each other's labels or classes.
 
 ![Seamline reviewing a model's proposals on a circuit board: a melted solder joint and a missing sensor](docs/media/hero.webp)
 
@@ -58,7 +61,7 @@ This is the real app on real images, driven by a script. The cursor and key labe
   </tr>
   <tr>
     <td><b>Touch up</b> with a brush, here joining two pieces of one melted pin</td>
-    <td><b>Train</b> on a GPU machine over SSH, and compare runs</td>
+    <td><b>Train</b> here or on a GPU machine over SSH, and compare runs</td>
   </tr>
 </table>
 
@@ -72,6 +75,8 @@ Seamline is an Electron app: a React window, a Node main process, and a Python e
 - **Remote runs outlive the app.** [The app](app/src/main/index.ts) checks the machine's GPU and disk, uploads the dataset with rsync and starts training with `setsid nohup`. The run writes its progress to a file the app reads every 3 seconds, so closing the app, opening another folder or losing the connection doesn't touch it. When the project opens, the app reattaches. When the run ends, the best model comes back and the run's files are removed from the machine. [A stand-in for the GPU machine](app/e2e/fake_gpu.ts) tests the failure cases without needing a GPU, and the normal path has run on a real GTX 1080 Ti.
 - **Large images open fast.** Large images and TIFFs get a pyramid built once with libvips and reused until the file changes, and the viewer draws only the tiles on screen. On an older PC, a 6050×12300 test TIFF took 8 seconds to build its pyramid, and after that the open call returned in 4 ms.
 - **Training goes through mySegLib.** The engine turns label files into masks and tiles, then trains through the library's `scripts/train.py`. The library also works on its own from YAML configs and the command line: see the [library guide](docs/LIBRARY.md).
+- **Only networks that train are offered.** The Train page's choices come from [one list](app/src/shared/models.json), and [a test](tests/unit/test_model_choices.py) reads the same list: for every architecture and encoder on it, and each encoder depth, decoder width and attention it offers, it trains a step on a tiny dataset, exports to ONNX and checks onnxruntime's scores against PyTorch's. Every combination was tried first on segmentation_models_pytorch 0.6.0, and what fails is left out: DenseNet under DeepLabV3, DeepLabV3+ and PAN, and other depths for FPN and PSPNet, whose heads upsample by a fixed factor. SegFormer's own MiT encoders are left out too, as their weights are for non-commercial use only. The engine refuses the same settings, and a run keeps its network's shape in its config, so pre-labelling and export build what it trained.
+- **Costs are counted before training.** [The estimate](src/models/estimate.py) builds the network on PyTorch's meta device, where tensors have shapes but no data, so counting its parameters, its FLOPs per tile and the tensors a training step keeps for the backward pass takes about a second whatever its size. Only the time per tile is measured for real, on a copy with zeros for weights. The app keeps the engine loaded between estimates, so only the first waits for PyTorch, and it can time a tile on the GPU machine too.
 - **Labels train as Seamtag and labelme read them.** The engine and the app look for each image's labels beside it, in the order Seamtag looks: `name.json` (LabelMe, or a CreateML list), `name.xml` (Pascal VOC), then `name.txt` beside a `classes.txt` (YOLO). The Pascal VOC, YOLO and CreateML readers are ported from LabelImg, and [tests](tests/unit/test_studio_formats.py) compare what the engine reads from LabelImg's own files with what Seamtag's code reads. [Another test](tests/unit/test_studio_shapes.py) checks the mask of each kind of shape with an area against the one labelme 7.9.1's own code draws, pixel for pixel. Lines and points have no area, so the dataset check counts them and leaves them out.
 - **Labels are hard to lose.** Each save names its own folder and goes through one ordered queue, the last edit is flushed before the window closes, and a label file that can't be read is flagged and never written over. Nor is one that another app changed since Seamline read it: Seamline compares the file's content before writing, so a change that keeps its size and time counts too, and when it differs Seamline reloads the labels and says so.
 - **Runs export for Seamtag.** Export for Seamtag writes a run's model as ONNX, beside a `model.json` that gives its classes, input size, tile and the normalisation it trained with: the settings Seamline's own pre-labelling uses. An export is saved only if onnxruntime's scores match PyTorch's to within 0.001, or 0.1% of the largest score when that's more, and the `model.json` goes last, so Seamtag 3.3 and later, which list exported runs, never list half an export.
@@ -79,7 +84,7 @@ Seamline is an Electron app: a React window, a Node main process, and a Python e
 
 ## Tested on real images
 
-The screenshots, the demo and these numbers come from real runs on circuit-board photos from the [VisA dataset](https://github.com/amazon-science/spot-diff): four defect types, 64 labelled images, and 27 held back that the model never saw. The model is a Unet with a ResNet-34 encoder, trained through the app on a GTX 1080 Ti. It's one run on a small set, so read the numbers as rough. The scripts and results, and what these runs changed in the training code, are in [`docs/demo`](docs/demo/README.md).
+The screenshots, the demo and these numbers come from real runs on circuit-board photos from the [VisA dataset](https://github.com/amazon-science/spot-diff): four defect types, 64 labelled images, and 27 held back that the model never saw. The model is a Unet with a ResNet-34 encoder, the Balanced size, trained through the app on a GTX 1080 Ti. It's one run on a small set, so read the numbers as rough. The scripts and results, and what these runs changed in the training code, are in [`docs/demo`](docs/demo/README.md).
 
 On the 27 unseen images, all with defects, the model found 24 of the 55 defects (at least half of each covered), proposed nothing on 6 images, and reached a mean IoU of 0.41 across the four defect types. That IoU is over all pixels of each type. The app's Best IoU of 0.669 reads higher because it's on validation tiles and averages background in.
 
@@ -97,7 +102,7 @@ The right-hand chart is the case for reviewing least certain first: low scores g
 
 ## Try it
 
-You need Node 20+ and Python 3.10+. There's no installer yet, and it's only been tested on Linux.
+Seamline runs from source and has been tested on Linux. You need Node 20+ and Python 3.10+.
 
 ```bash
 git clone https://github.com/jakhon37/Seamline.git
@@ -109,19 +114,19 @@ npm run build
 npm start
 ```
 
-Open any folder of images, including one labelled in labelme, LabelImg or Seamtag. [`app/README.md`](app/README.md) has the keyboard shortcuts, how Seamline works with Seamtag, and how to train on a GPU machine. **Label in Seamtag** needs Seamtag, which has installers for Windows, macOS and Linux on [its releases page](https://github.com/jakhon37/Seamtag/releases/latest). Working on one folder in both apps at once needs Seamtag 3.3 or later. On Ubuntu 24.04 and later, install its `.deb`: its AppImage needs `--no-sandbox` there.
+Open any folder of images, including one labelled in labelme, LabelImg or Seamtag. [`app/README.md`](app/README.md) has the keyboard shortcuts, how Seamline works with Seamtag, how to choose the model, and how to train on a GPU machine. **Label in Seamtag** needs Seamtag, which has installers for Windows, macOS and Linux on [its releases page](https://github.com/jakhon37/Seamtag/releases/latest). Working on one folder in both apps at once needs Seamtag 3.3 or later. On Ubuntu 24.04 and later, install its `.deb`: its AppImage needs `--no-sandbox` there.
 
 ## Still to do
 
+- An auto mode that measures the dataset and the training machine, then picks the network and its training settings, with its reasons
 - An installer, and testing on Windows and macOS
 - A way to mark an image as truly empty, so it counts as labelled: one whose label file had every shape rejected is left out of pre-labelling, but stays under Label
 - Training on clean images too: tiles with no defect are skipped today
 - Review of the model's worst errors, not just its least certain shapes
-- SAM-assisted labelling
 
 ## License and credits
 
-MIT, see [LICENSE](LICENSE). Third-party notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The Pascal VOC, YOLO and CreateML readers in [`engine/studio.py`](engine/studio.py) and [`app/src/shared/formats.ts`](app/src/shared/formats.ts) are ported from [LabelImg](https://github.com/HumanSignal/labelImg) under the MIT License, and carry its notice.
+MIT, see [LICENSE](LICENSE). Third-party notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), with the source and licence of each encoder's ImageNet weights, which training downloads and Seamline doesn't ship. The Pascal VOC, YOLO and CreateML readers in [`engine/studio.py`](engine/studio.py) and [`app/src/shared/formats.ts`](app/src/shared/formats.ts) are ported from [LabelImg](https://github.com/HumanSignal/labelImg) under the MIT License, and carry its notice.
 
 Demo images are from [VisA](https://github.com/amazon-science/spot-diff) (Zou et al., ECCV 2022), used under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) and shown cropped with labels drawn on them.
 

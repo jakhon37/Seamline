@@ -33,9 +33,9 @@ Open any folder of images. Seamline lists the JPEG, JFIF, PNG, BMP, GIF, TIFF, W
 ## How it fits together
 
 - `src/main`: file access, finding and reading label files, image tile pyramids (libvips through sharp), and starting the Python engine and Seamtag
-- `src/shared`: what the main process and the window both use, such as the Pascal VOC, YOLO and CreateML readers in `formats.ts`, ported from LabelImg
+- `src/shared`: what the main process and the window both use, such as the Pascal VOC, YOLO and CreateML readers in `formats.ts`, ported from LabelImg, and in `models.json` the networks the Train page offers
 - `src/renderer`: the React UI, with `Labeler.tsx` and `Trainer.tsx` side by side
-- `../engine/studio.py`: `prepare` turns label files into masks and tiles, `train` trains through `scripts/train.py`, `predict` pre-labels, and `export` writes a run's model as ONNX for Seamtag
+- `../engine/studio.py`: `prepare` turns label files into masks and tiles, `train` trains through `scripts/train.py`, `predict` pre-labels, `export` writes a run's model as ONNX for Seamtag, and `estimate` gives a model's costs before it trains
 
 Pre-labelled shapes stay dashed and are left out of training until you accept or edit them.
 
