@@ -42,7 +42,7 @@ Seamline's own editor is simpler: it reshapes polygons and rectangles, and keeps
 
 ## See it work
 
-![A 32-second demo: reviewing proposals by keyboard, rejecting a wrong one, touching one up with the brush, and comparing two training runs](docs/media/demo.gif)
+![A 35-second demo: reviewing proposals by keyboard, rejecting a wrong one, touching one up with the brush, then choosing a model size and comparing two training runs](docs/media/demo.gif)
 
 This is the real app on real images, driven by a script. The cursor and key labels are drawn on top for the recording. There's also an [MP4 version](docs/media/demo.mp4).
 
@@ -56,11 +56,11 @@ This is the real app on real images, driven by a script. The cursor and key labe
     <td><b>Review</b> each proposal: <code>W</code> accept, <code>S</code> reject, <code>Tab</code> skip</td>
   </tr>
   <tr>
-    <td><img src="docs/media/brush.webp" alt="The brush joining two proposed pieces of one melted pin"></td>
-    <td><img src="docs/media/train.webp" alt="Training curves and log from a real GPU run, with two runs listed"></td>
+    <td><img src="docs/media/brush.webp" alt="The brush joining two proposed pieces of one melt across the pins"></td>
+    <td><img src="docs/media/train.webp" alt="Two real GPU runs compared, with the Balanced size's estimate and a tile timed on the GPU machine"></td>
   </tr>
   <tr>
-    <td><b>Touch up</b> with a brush, here joining two pieces of one melted pin</td>
+    <td><b>Touch up</b> with a brush, here joining two proposed pieces of one melt</td>
     <td><b>Train</b> here or on a GPU machine over SSH, and compare runs</td>
   </tr>
 </table>
@@ -84,19 +84,19 @@ Seamline is an Electron app: a React window, a Node main process, and a Python e
 
 ## Tested on real images
 
-The screenshots, the demo and these numbers come from real runs on circuit-board photos from the [VisA dataset](https://github.com/amazon-science/spot-diff): four defect types, 64 labelled images, and 27 held back that the model never saw. The model is a Unet with a ResNet-34 encoder, the Balanced size, trained through the app on a GTX 1080 Ti. It's one run on a small set, so read the numbers as rough. The scripts and results, and what these runs changed in the training code, are in [`docs/demo`](docs/demo/README.md).
+The screenshots, the demo and these numbers come from real runs on circuit-board photos from the [VisA dataset](https://github.com/amazon-science/spot-diff): four defect types, 64 labelled images, and 27 held back that the model never saw. The model is a Unet with a ResNet-34 encoder, the Balanced size, trained through the app on a GTX 1080 Ti. It's one run on a small set, so read the numbers as rough. The scripts and results, and what the first runs on these images changed in the training code, are in [`docs/demo`](docs/demo/README.md).
 
-On the 27 unseen images, all with defects, the model found 24 of the 55 defects (at least half of each covered), proposed nothing on 6 images, and reached a mean IoU of 0.41 across the four defect types. That IoU is over all pixels of each type. The app's Best IoU of 0.669 reads higher because it's on validation tiles and averages background in.
+On the 27 unseen images, all with defects, the model found 22 of the 55 defects (at least half of each covered), proposed nothing on 9 images, and reached a mean IoU of 0.42 across the four defect types. That IoU is over all pixels of each type. The app's Best IoU of 0.664 reads higher because it's on validation tiles and averages background in.
 
-**Mostly right when it proposes.** Of the 31 proposals, 24 are on a defect and the right type, 3 are on a defect but the wrong type, and 4 are mostly off any defect. On 30 defect-free boards, it proposed only 1 shape.
+**Mostly right when it proposes.** Of the 25 proposals, 20 are on a defect and the right type, 1 is on a defect but the wrong type, and 4 are mostly off any defect. On 30 defect-free boards, it proposed nothing.
 
 ![The same unseen images with true labels and the model's proposals](docs/media/examples.webp)
 
-These examples are hand-picked to show each defect type, so they're better than average for all but bent pins. The averages are in the chart:
+These examples are the model's best for each defect type, so they're better than average, and it found no bent pin at all. The averages are in the chart:
 
 ![Bar charts: IoU by defect type, and IoU by certainty quarter](docs/media/results.webp)
 
-The right-hand chart is the case for reviewing least certain first: low scores go with weak shapes (Spearman 0.73 between score and IoU). It's from only 31 shapes, so treat it as a direction rather than a measurement.
+The right-hand chart is the case for reviewing least certain first: low scores go with weak shapes (Spearman 0.75 between score and IoU). It's from only 25 shapes, so treat it as a direction rather than a measurement.
 
 **What it still gets wrong.** With 64 labelled images, the model misses more than half of the defects and never finds a bent pin. A defect the model misses has no shape to review, so you still need to look at the images. How much labelling time this saves hasn't been measured.
 

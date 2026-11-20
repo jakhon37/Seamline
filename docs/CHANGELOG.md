@@ -57,6 +57,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and takes a `constant` schedule
 - `encoder_depth`, `decoder_width` and `decoder_attention_type` in the model config, which
   `create_model` takes and runs keep, so predicting and exporting build the network a run trained
+- The README's screenshots, demo, charts and figures come from new runs through today's app, and
+  `docs/demo` has the scripts that take, film and draw them; `evaluate.py` also counts proposals by
+  type and certainty quarter
 
 ### Changed
 - Images and masks pair by exact name, so one missing file can't shift every later pair. A mask

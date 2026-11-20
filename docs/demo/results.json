@@ -1,69 +1,295 @@
 {
-  "before": {
-    "iou_per_class": {
-      "bent": 0.0,
-      "melt": 0.0,
-      "missing": 0.7194094798243389,
-      "scratch": 0.0
-    },
-    "mean_iou": 0.17985236995608472,
-    "true_defects": 55,
-    "true_defects_found": 2,
-    "predicted_shapes": 2,
-    "images_with_no_prediction": 25
+ "held_back_images": 27,
+ "iou_per_class": {
+  "bent": 0.0,
+  "melt": 0.6316960606560079,
+  "missing": 0.6548572853713609,
+  "scratch": 0.4024133025947908
+ },
+ "mean_iou": 0.42224166215553993,
+ "true_defects": 55,
+ "true_defects_found": 22,
+ "predicted_shapes": 25,
+ "images_with_no_prediction": 9,
+ "proposals": {
+  "on_a_defect_and_right_class": 20,
+  "on_a_defect_but_wrong_class": 1,
+  "mostly_off_any_defect": 4
+ },
+ "shapes": [
+  {
+   "image": "sensor_006",
+   "label": "melt",
+   "score": 0.976,
+   "iou": 0.0,
+   "on_a_defect": 0.0,
+   "on_its_class": 0.0,
+   "area": 51
   },
-  "after": {
-    "iou_per_class": {
-      "bent": 0.0,
-      "melt": 0.5638519430113126,
-      "missing": 0.6497605659431128,
-      "scratch": 0.4076360762619777
-    },
-    "mean_iou": 0.4053121463041008,
-    "true_defects": 55,
-    "true_defects_found": 24,
-    "predicted_shapes": 31,
-    "images_with_no_prediction": 6,
-    "spearman_score_iou": 0.7309134385101709,
-    "proposals": {
-      "on_a_defect_and_right_class": 24,
-      "on_a_defect_but_wrong_class": 3,
-      "mostly_off_any_defect": 4
-    },
-    "clean_boards": {
-      "clean_boards": 30,
-      "boards_with_a_false_alarm": 1,
-      "false_alarm_shapes": 1
-    }
+  {
+   "image": "sensor_016",
+   "label": "melt",
+   "score": 0.967,
+   "iou": 0.7467602591792657,
+   "on_a_defect": 0.9134742404227213,
+   "on_its_class": 0.9134742404227213,
+   "area": 3028
   },
-  "iou_by_certainty_quarter": [
-    0.023893639864570302,
-    0.2937604111207074,
-    0.4911664692498782,
-    0.5770969102365574
+  {
+   "image": "sensor_022",
+   "label": "melt",
+   "score": 0.976,
+   "iou": 0.8613989637305699,
+   "on_a_defect": 0.9917971662938105,
+   "on_its_class": 0.9917971662938105,
+   "area": 2682
+  },
+  {
+   "image": "sensor_024",
+   "label": "melt",
+   "score": 0.975,
+   "iou": 0.8512396694214877,
+   "on_a_defect": 0.8671303074670571,
+   "on_its_class": 0.8671303074670571,
+   "area": 2732
+  },
+  {
+   "image": "sensor_028",
+   "label": "melt",
+   "score": 0.961,
+   "iou": 0.6161879895561357,
+   "on_a_defect": 0.8403560830860534,
+   "on_its_class": 0.8403560830860534,
+   "area": 1685
+  },
+  {
+   "image": "sensor_028",
+   "label": "melt",
+   "score": 0.97,
+   "iou": 0.24764044943820224,
+   "on_a_defect": 0.7376171352074966,
+   "on_its_class": 0.7376171352074966,
+   "area": 747
+  },
+  {
+   "image": "sensor_030",
+   "label": "melt",
+   "score": 0.97,
+   "iou": 0.8000672043010753,
+   "on_a_defect": 0.8988297470743677,
+   "on_its_class": 0.8988297470743677,
+   "area": 2649
+  },
+  {
+   "image": "sensor_031",
+   "label": "melt",
+   "score": 0.958,
+   "iou": 0.5008417508417509,
+   "on_a_defect": 0.8767190569744597,
+   "on_its_class": 0.8767190569744597,
+   "area": 2036
+  },
+  {
+   "image": "sensor_033",
+   "label": "melt",
+   "score": 0.979,
+   "iou": 0.8459179762361058,
+   "on_a_defect": 0.890637610976594,
+   "on_its_class": 0.890637610976594,
+   "area": 2478
+  },
+  {
+   "image": "sensor_035",
+   "label": "melt",
+   "score": 0.979,
+   "iou": 0.907625786163522,
+   "on_a_defect": 0.9325525040387722,
+   "on_its_class": 0.9325525040387722,
+   "area": 2476
+  },
+  {
+   "image": "sensor_037",
+   "label": "melt",
+   "score": 0.956,
+   "iou": 0.12140992167101827,
+   "on_a_defect": 1.0,
+   "on_its_class": 1.0,
+   "area": 186
+  },
+  {
+   "image": "sensor_038",
+   "label": "melt",
+   "score": 0.964,
+   "iou": 0.7964666912035333,
+   "on_a_defect": 0.8949545078577337,
+   "on_its_class": 0.8949545078577337,
+   "area": 2418
+  },
+  {
+   "image": "sensor_046",
+   "label": "missing",
+   "score": 0.992,
+   "iou": 0.9821763505041399,
+   "on_a_defect": 0.9828077852321156,
+   "on_its_class": 0.9828077852321156,
+   "area": 96439
+  },
+  {
+   "image": "sensor_059",
+   "label": "melt",
+   "score": 0.933,
+   "iou": 0.0,
+   "on_a_defect": 0.6371814092953523,
+   "on_its_class": 0.0,
+   "area": 667
+  },
+  {
+   "image": "sensor_059",
+   "label": "missing",
+   "score": 0.982,
+   "iou": 0.6536748886776405,
+   "on_a_defect": 1.0,
+   "on_its_class": 1.0,
+   "area": 52260
+  },
+  {
+   "image": "sensor_061",
+   "label": "melt",
+   "score": 0.973,
+   "iou": 0.8053316800991941,
+   "on_a_defect": 0.9629355077835434,
+   "on_its_class": 0.9629355077835434,
+   "area": 1349
+  },
+  {
+   "image": "sensor_075",
+   "label": "melt",
+   "score": 0.97,
+   "iou": 0.3512461059190031,
+   "on_a_defect": 0.5353115727002967,
+   "on_its_class": 0.5353115727002967,
+   "area": 1685
+  },
+  {
+   "image": "sensor_088",
+   "label": "scratch",
+   "score": 0.949,
+   "iou": 0.0472992700729927,
+   "on_a_defect": 0.6666666666666666,
+   "on_its_class": 0.6666666666666666,
+   "area": 243
+  },
+  {
+   "image": "sensor_088",
+   "label": "scratch",
+   "score": 0.951,
+   "iou": 0.28537274505542276,
+   "on_a_defect": 0.5108949416342412,
+   "on_its_class": 0.5108949416342412,
+   "area": 2570
+  },
+  {
+   "image": "sensor_088",
+   "label": "scratch",
+   "score": 0.804,
+   "iou": 0.0,
+   "on_a_defect": 0.0,
+   "on_its_class": 0.0,
+   "area": 61
+  },
+  {
+   "image": "sensor_088",
+   "label": "scratch",
+   "score": 0.962,
+   "iou": 0.22403766269731376,
+   "on_a_defect": 0.7518587360594795,
+   "on_its_class": 0.7518587360594795,
+   "area": 1076
+  },
+  {
+   "image": "sensor_089",
+   "label": "scratch",
+   "score": 0.967,
+   "iou": 0.5268403816033035,
+   "on_a_defect": 0.7467204843592331,
+   "on_its_class": 0.7467204843592331,
+   "area": 4955
+  },
+  {
+   "image": "sensor_093",
+   "label": "scratch",
+   "score": 0.949,
+   "iou": 0.06969797543976104,
+   "on_a_defect": 0.4838709677419355,
+   "on_its_class": 0.4838709677419355,
+   "area": 434
+  },
+  {
+   "image": "sensor_093",
+   "label": "scratch",
+   "score": 0.944,
+   "iou": 0.047782743210725336,
+   "on_a_defect": 0.5366795366795367,
+   "on_its_class": 0.5366795366795367,
+   "area": 259
+  },
+  {
+   "image": "sensor_093",
+   "label": "scratch",
+   "score": 0.962,
+   "iou": 0.34796354844708943,
+   "on_a_defect": 0.4196008073559094,
+   "on_its_class": 0.4196008073559094,
+   "area": 4459
+  }
+ ],
+ "spearman_score_iou": 0.7518800485703139,
+ "least_certain_quarter_iou": 0.07502545562981698,
+ "most_certain_quarter_iou": 0.7084656608853296,
+ "iou_by_certainty_quarter": [
+  0.07502545562981698,
+  0.43448459406947354,
+  0.5796476800900073,
+  0.7288619478190667
+ ],
+ "shapes_per_quarter": [
+  6,
+  6,
+  6,
+  7
+ ],
+ "score_range": [
+  [
+   0.804,
+   0.951
   ],
-  "shapes_per_quarter": [
-    7,
-    7,
-    7,
-    10
+  [
+   0.956,
+   0.964
   ],
-  "score_range": [
-    [
-      0.433,
-      0.851
-    ],
-    [
-      0.89,
-      0.94
-    ],
-    [
-      0.943,
-      0.961
-    ],
-    [
-      0.962,
-      0.991
-    ]
+  [
+   0.967,
+   0.973
+  ],
+  [
+   0.975,
+   0.992
   ]
+ ],
+ "wrong_shapes": 12,
+ "wrong_in_least_certain_half": 9,
+ "clean_boards": {
+  "clean_boards": 30,
+  "boards_with_a_false_alarm": 0,
+  "false_alarm_shapes": 0
+ },
+ "run": {
+  "name": "20261120_122617",
+  "size": "Balanced",
+  "architecture": "Unet",
+  "encoder": "resnet34",
+  "best_validation_iou": 0.6643,
+  "epochs_run": 88,
+  "device": "NVIDIA GeForce GTX 1080 Ti"
+ }
 }

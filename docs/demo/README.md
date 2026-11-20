@@ -1,60 +1,75 @@
 # Reproducing the demo numbers
 
-The figures in the main README come from one real run through the app. Results are in [`results.json`](results.json).
+The figures, screenshots and demo in the main README come from one project and two real runs through the app, made on 2026-11-20. The figures are in [`results.json`](results.json). The fix history below comes from the runs of 2026-11-06, in [`results-2026-11-06.json`](results-2026-11-06.json).
 
 ## Data
 
 `pcb1` from [VisA](https://github.com/amazon-science/spot-diff) (CC BY 4.0): photos of a circuit board with four defect types. The 91 images with a single defect type are used, split per type: 64 labelled from their true masks and 27 held back.
 
 ```bash
-python docs/demo/build_project.py VisA/pcb1 demo/pcb demo/truth
+python docs/demo/build_project.py VisA/pcb1 sensor-inspection truth
 ```
 
 ## Run
 
-Open `demo/pcb` in Seamline and train with these settings. This run used a GTX 1080 Ti over SSH.
+Open `sensor-inspection` in Seamline and train with these settings, on a GPU machine over SSH. These runs used a GTX 1080 Ti.
 
 | Setting | Value |
 |---|---|
-| Architecture, encoder | Unet, resnet34 with ImageNet weights |
+| Model size | Balanced: Unet, resnet34 with ImageNet weights |
 | Loss | combined |
 | Epochs, batch | 100, 8 |
 | Input size, tile size | 512, 1024 |
 | Learning rate | 0.0003 |
 | Validation share | 0.2 |
 
+The run stopped at epoch 88, 50 epochs after its best validation loss, with a best IoU of 0.664. A Fast run, Unet on resnet18 with the same settings, came first so that the Balanced run is the newest, which is the one pre-labelling uses. It reached 0.759, and the two sit side by side in the README's screenshot of the Train page. `train_runs.cjs` trains both through the app.
+
 Then press **Pre-label 27 images**, and score the result against the held-back labels:
 
 ```bash
-python docs/demo/evaluate.py demo/pcb demo/truth results.json
+python docs/demo/evaluate.py sensor-inspection truth results.json
 ```
 
 Last, run the model on 30 defect-free boards it never saw, where every shape is a false alarm:
 
 ```bash
-python docs/demo/clean_boards.py VisA/pcb1 demo/pcb demo/clean clean.json
+python docs/demo/clean_boards.py VisA/pcb1 sensor-inspection clean clean.json
 ```
 
 ## Reading the numbers
 
 - A true defect counts as found when shapes of its class cover at least half of it.
 - Per-class IoU is over all pixels of that class on the 27 images, without background. The app's **Best IoU** is different: it's on the validation tiles, and averages background in.
-- A proposal counts as on a defect when at least half of it lies on a true defect of any type.
-- 27 images and 31 predicted shapes is a small sample, so small differences mean little.
-- "Before" is the same run on the code from before the softmax fix, with the tiling fix already in. Its validation IoU peaked at 0.389 and collapsed to 0.196 by epoch 24. After the fix it reached 0.669.
+- A proposal counts as on a defect when at least half of it lies on a true defect of any type, and of the right type when at least half of it lies on its own type.
+- Certainty quarters split the proposals by score, the last taking any left over.
+- 27 images and 25 predicted shapes is a small sample, so small differences mean little.
 
-## What these runs changed
+## The README's images
 
-These runs found two silent bugs that synthetic tests had never shown:
+The charts are drawn from `results.json`, and the screenshots and demo are the real app on the project, driven by scripts. The scripts take a project, an app profile of their own so nothing reaches yours, and a display such as Xvfb. The demo is filmed from that display with ffmpeg, and the cursor and keys are drawn by the page as the script moves and presses them.
+
+```bash
+python docs/demo/build_charts.py results.json sensor-inspection truth docs/media
+node docs/demo/shoot.cjs prelabel sensor-inspection profile
+node docs/demo/shoot.cjs stills sensor-inspection profile docs/demo/stills.json shots
+node docs/demo/record_demo.cjs sensor-inspection profile docs/demo/demo.json demo.mp4
+```
+
+[`stills.json`](stills.json) and [`demo.json`](demo.json) say which images, shapes and steps. A still that edits labels, such as the brush stroke, is best taken last, or from a fresh copy of the project, so the others show the folder as it was.
+
+## What the first runs changed
+
+The first runs on this project, on 2026-11-06, found two silent bugs that synthetic tests had never shown:
 
 1. **Softmax applied twice.** The configs put softmax on the model's output, and the losses apply it again. Even a perfect prediction then cost 0.30 on the combined focal and Dice loss, and no pixel could look more than 40% certain. Validation loss sat just above that floor, at 0.315, and quality later collapsed.
 2. **Part of each image ignored.** Tiling dropped any leftover strip narrower than half a tile. On these 1404×1070 photos, 30% of every image never reached training, and on a 1500×1500 image it would be 53%.
 
-Both are fixed, with tests.
+Both are fixed, with tests. "Before" below is the same run on the code from before the softmax fix, with the tiling fix already in. Its validation IoU peaked at 0.389 and collapsed to 0.196 by epoch 24. After the fix it reached 0.669.
 
 ![Training curves from the app: before the fix, quality collapses at epoch 24; after it, quality climbs and holds](../media/training-curves.webp)
 
-The table isolates the softmax fix on the 27 unseen images. Both models have the tiling fix and the same data and training settings. It's one run each, so small differences mean little.
+The table isolates the softmax fix on the 27 unseen images, from the runs of 2026-11-06. Both models have the tiling fix and the same data and training settings. It's one run each, so small differences mean little.
 
 | On the 27 unseen images | Before | After |
 |---|---:|---:|

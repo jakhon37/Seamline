@@ -1,0 +1,69 @@
+{
+  "before": {
+    "iou_per_class": {
+      "bent": 0.0,
+      "melt": 0.0,
+      "missing": 0.7194094798243389,
+      "scratch": 0.0
+    },
+    "mean_iou": 0.17985236995608472,
+    "true_defects": 55,
+    "true_defects_found": 2,
+    "predicted_shapes": 2,
+    "images_with_no_prediction": 25
+  },
+  "after": {
+    "iou_per_class": {
+      "bent": 0.0,
+      "melt": 0.5638519430113126,
+      "missing": 0.6497605659431128,
+      "scratch": 0.4076360762619777
+    },
+    "mean_iou": 0.4053121463041008,
+    "true_defects": 55,
+    "true_defects_found": 24,
+    "predicted_shapes": 31,
+    "images_with_no_prediction": 6,
+    "spearman_score_iou": 0.7309134385101709,
+    "proposals": {
+      "on_a_defect_and_right_class": 24,
+      "on_a_defect_but_wrong_class": 3,
+      "mostly_off_any_defect": 4
+    },
+    "clean_boards": {
+      "clean_boards": 30,
+      "boards_with_a_false_alarm": 1,
+      "false_alarm_shapes": 1
+    }
+  },
+  "iou_by_certainty_quarter": [
+    0.023893639864570302,
+    0.2937604111207074,
+    0.4911664692498782,
+    0.5770969102365574
+  ],
+  "shapes_per_quarter": [
+    7,
+    7,
+    7,
+    10
+  ],
+  "score_range": [
+    [
+      0.433,
+      0.851
+    ],
+    [
+      0.89,
+      0.94
+    ],
+    [
+      0.943,
+      0.961
+    ],
+    [
+      0.962,
+      0.991
+    ]
+  ]
+}
