@@ -1,0 +1,88 @@
+{
+ "first": "sensor_059.jpg",
+ "steps": [
+  {
+   "key": "w",
+   "label": "W",
+   "what": "Review",
+   "wait": 1700
+  },
+  {
+   "key": "s",
+   "label": "S",
+   "what": "Reject",
+   "wait": 1700
+  },
+  {
+   "key": "w",
+   "label": "W",
+   "what": "Accept",
+   "wait": 1500
+  },
+  {
+   "image": "sensor_028.jpg",
+   "wait": 1800
+  },
+  {
+   "key": "w",
+   "label": "W",
+   "what": "Review",
+   "wait": 1300
+  },
+  {
+   "key": "b",
+   "label": "B",
+   "what": "Brush",
+   "wait": 500
+  },
+  {
+   "stroke": [
+    [
+     205,
+     375
+    ],
+    [
+     330,
+     392
+    ]
+   ],
+   "ms": 900,
+   "wait": 1700
+  },
+  {
+   "key": "Control+2",
+   "label": "Ctrl 2",
+   "what": "Train",
+   "wait": 1600
+  },
+  {
+   "role": [
+    "radio",
+    "Fast"
+   ],
+   "wait": 1600
+  },
+  {
+   "role": [
+    "radio",
+    "Balanced"
+   ],
+   "wait": 1100
+  },
+  {
+   "role": [
+    "button",
+    "Compare runs"
+   ],
+   "wait": 1500
+  },
+  {
+   "run": "resnet18",
+   "wait": 2200
+  },
+  {
+   "run": "resnet34",
+   "wait": 1600
+  }
+ ]
+}

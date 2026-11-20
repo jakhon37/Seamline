@@ -42,6 +42,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Beside the Train button, the labels that aren't classes yet and so don't train, with how many
   images and shapes use them, and an Add as classes button; the shape list marks each shape whose
   label isn't a class
+- A Model size choice on the Train page, Fast, Balanced and Accurate, a Unet on ResNet-18, 34 and
+  50, and Custom; beside it an estimate of the network's parameters, GFLOPs per tile and training
+  memory at the batch size, and its time per tile on this computer, or on the GPU machine when asked
+- An Advanced section with the architecture, encoder, encoder depth, decoder width, scSE attention,
+  loss, learning-rate schedule and warm-up, augmentation strength, seed and early-stopping
+  patience; changing any of them makes the size Custom, and the page offers only what trains and
+  exports, as `app/src/shared/models.json` lists and `tests/unit/test_model_choices.py` checks
+- UPerNet and Segformer, on the same encoders as the other architectures
+- Duplicate, which puts a run's settings back in the form, and a table comparing runs by network,
+  input size, parameters, time per tile and best IoU
+- An `estimate` command in `engine/studio.py`; `scripts/train.py` reports a run's parameters,
+  GFLOPs and time per tile as it starts, warms the learning rate up over `scheduler.warmup_epochs`,
+  and takes a `constant` schedule
+- `encoder_depth`, `decoder_width` and `decoder_attention_type` in the model config, which
+  `create_model` takes and runs keep, so predicting and exporting build the network a run trained
+- The README's screenshots, demo, charts and figures come from new runs through today's app, and
+  `docs/demo` has the scripts that take, film and draw them; `evaluate.py` also counts proposals by
+  type and certainty quarter
 
 ### Changed
 - Images and masks pair by exact name, so one missing file can't shift every later pair. A mask
@@ -84,6 +102,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unless Seamline changed the same class, and the file's other keys are kept
 
 ### Fixed
+- The Train page no longer offers DenseNet with DeepLabV3, DeepLabV3+ or PAN, which smp can't
+  build, and says why a batch of 1 or a small input can't train before a run starts
 - Training applied softmax twice: `activation` from the config reached the model, and the losses
   apply softmax themselves. A perfect prediction still cost 0.30, and small classes could collapse
   into background. `activation` now applies at inference and export only. Saved models still load,

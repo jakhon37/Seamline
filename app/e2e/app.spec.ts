@@ -78,10 +78,11 @@ test('label, switch, train, pre-label', async () => {
   await page.keyboard.press('Control+2')
   // Set here, as the app remembers the last choice between runs
   await page.getByLabel('Run on').selectOption('local')
-  await page.getByLabel('Epochs').fill('3')
+  await page.getByLabel('Epochs', { exact: true }).fill('3')
   await page.getByLabel('Batch').fill('4')
   await page.getByLabel('Input size').fill('128')
-  await page.getByLabel('Encoder').selectOption('resnet18')
+  // Unet on resnet18
+  await page.getByRole('radio', { name: 'Fast' }).click()
   await page.getByLabel('Start from ImageNet weights').uncheck()
   await page.getByRole('button', { name: /Train on 10 labelled/ }).click()
   await expect(page.locator('.tile', { hasText: 'Status' })).toContainText('Training', { timeout: 60000 })
@@ -156,7 +157,7 @@ test('label, switch, train, pre-label', async () => {
 
   // Stop ends a run straight away and it reads as stopped, not finished
   await page.keyboard.press('Control+2')
-  await page.getByLabel('Epochs').fill('500')
+  await page.getByLabel('Epochs', { exact: true }).fill('500')
   await page.getByRole('button', { name: /Train on 10 labelled/ }).click()
   await expect(page.getByRole('button', { name: /Stop training/ })).toBeVisible({ timeout: 60000 })
   await page.getByRole('button', { name: /Stop training/ }).click()

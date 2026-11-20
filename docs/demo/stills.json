@@ -1,0 +1,34 @@
+{
+ "label": {
+  "image": "sensor_044.jpg",
+  "shape": 0
+ },
+ "review": {
+  "image": "sensor_033.jpg"
+ },
+ "brush": {
+  "image": "sensor_028.jpg",
+  "from": [
+   205,
+   375
+  ],
+  "to": [
+   330,
+   392
+  ]
+ },
+ "hero": {
+  "image": "sensor_059.jpg",
+  "fit": true,
+  "zoom": 1.1,
+  "at": [
+   560,
+   390
+  ]
+ },
+ "train": {
+  "duplicate": true,
+  "compare": true,
+  "timeThere": true
+ }
+}

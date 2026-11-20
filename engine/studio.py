@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Backend commands for the desktop app. Each prints JSON or writes JSONL events.
 
-prepare: project folder with label files -> train/val images and index masks
-train:   prepare, write a run config and call scripts/train.py
-predict: run a trained model on images and print its polygons as LabelMe shapes
-export:  write a trained run as ONNX, with the sidecar Seamtag's pre-labelling reads
+prepare:  project folder with label files -> train/val images and index masks
+train:    prepare, write a run config and call scripts/train.py
+predict:  run a trained model on images and print its polygons as LabelMe shapes
+export:   write a trained run as ONNX, with the sidecar Seamtag's pre-labelling reads
+estimate: a model's parameters, work per tile, training memory and time per tile, untrained
 """
 import argparse
 import base64
@@ -756,6 +757,126 @@ def device_name() -> str:
     return torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"
 
 
+# The learning-rate schedules scripts/train.py knows, after any warm-up
+SCHEDULERS = ("reduce_on_plateau", "cosine", "constant")
+# What each augmentation strength sets in the config's augmentation.train. Standard is the
+# config's own, which runs had before there was a choice.
+AUGMENTATIONS = {
+    "none": dict(rotate_p=0.0, h_flip_p=0.0, v_flip_p=0.0, brightness_contrast_p=0.0, gamma_p=0.0),
+    "light": dict(
+        rotate_p=0.0,
+        h_flip_p=0.5,
+        v_flip_p=0.5,
+        brightness_limit=0.1,
+        contrast_limit=0.1,
+        brightness_contrast_p=0.3,
+        gamma_limit=[90, 110],
+        gamma_p=0.2,
+    ),
+    "standard": {},
+    "strong": dict(
+        rotate_limit=360,
+        rotate_p=0.8,
+        h_flip_p=0.5,
+        v_flip_p=0.5,
+        brightness_limit=0.4,
+        contrast_limit=0.4,
+        brightness_contrast_p=0.6,
+        gamma_limit=[70, 130],
+        gamma_p=0.5,
+    ),
+}
+
+
+# Their decoders pool the whole image to one value a channel, which BatchNorm can't train on from
+# a single image: they train on batches of 2 or more
+POOLED = ("DeepLabV3", "DeepLabV3Plus", "PAN", "UPerNet")
+# The smallest input each trains on. Below 64 the deepest features are a single pixel, which
+# BatchNorm can't train on either, and PAN's pyramid pools features down three times more.
+MIN_SIZE = {"PAN": 128}
+SMALLEST = 64
+
+
+def model_settings(options: dict) -> dict:
+    """The network the options ask for, each setting as create_model takes it. Options from
+    before there were these settings give the network runs had then: no depth is the
+    architecture's own. create_model checks them, where training builds the model."""
+    depth = options.get("encoder_depth")
+    return {
+        "architecture": options["architecture"],
+        "encoder": options["encoder"],
+        "encoder_depth": None if depth is None else whole(options, "encoder_depth", 0, least=1),
+        "decoder_width": float(options.get("decoder_width") or 1.0),
+        "decoder_attention_type": options.get("decoder_attention_type") or None,
+    }
+
+
+def choice(options: dict, key: str, choices, default):
+    value = options.get(key) or default
+    if value not in choices:
+        raise SystemExit(f"{key} must be one of {', '.join(choices)}, not {value}")
+    return value
+
+
+def whole(options: dict, key: str, default: int, least: int = 0) -> int:
+    value = options.get(key)
+    if value is None:
+        return default
+    if not (is_whole(value) and value >= least):
+        raise SystemExit(f"{key} must be a whole number of at least {least}, not {value}")
+    return int(value)
+
+
+def run_config(root: Path, options: dict, run_dir: Path, num_classes: int) -> dict:
+    """The training config for a run: configs/default.yaml with the app's options. The options'
+    keys that came later are optional, and without them a run trains as runs did before."""
+    config = copy.deepcopy(yaml.safe_load((REPO / "configs" / "default.yaml").read_text()))
+    config["experiment"]["name"] = "run"
+    config["experiment"]["seed"] = whole(options, "seed", config["experiment"]["seed"])
+    config["data"].update(
+        base_dir=str(root / ".myseg"),
+        dataset_dir="dataset",
+        image_size=options["image_size"],
+        num_classes=num_classes,
+    )
+    config["model"].update(
+        **model_settings(options),
+        num_classes=num_classes,
+        encoder_weights=options.get("encoder_weights", "imagenet"),
+    )
+    config["training"].update(
+        epochs=options["epochs"],
+        batch_size=options["batch_size"],
+        learning_rate=options["learning_rate"],
+        num_workers=options.get("num_workers", 2),
+        gradient_accumulation_steps=1,
+    )
+    if options["architecture"] in POOLED and options["batch_size"] < 2:
+        raise SystemExit(f"{options['architecture']} trains on batches of 2 or more.")
+    smallest = MIN_SIZE.get(options["architecture"], SMALLEST)
+    if options["image_size"] < smallest:
+        raise SystemExit(f"{options['architecture']} needs an input size of {smallest} or more.")
+    if config["training"]["num_workers"] == 0:
+        config["training"].update(persistent_workers=False, prefetch_factor=None)
+    config["loss"]["type"] = options["loss"]
+    config["loss"]["class_weights"] = [1.0] * num_classes
+    config["scheduler"]["type"] = choice(
+        options, "scheduler", SCHEDULERS, config["scheduler"]["type"]
+    )
+    config["scheduler"]["warmup_epochs"] = whole(options, "warmup_epochs", 0)
+    config["early_stopping"]["patience"] = whole(
+        options, "early_stopping_patience", config["early_stopping"]["patience"], least=1
+    )
+    strength = choice(options, "augmentation", AUGMENTATIONS, "standard")
+    config["augmentation"]["strength"] = strength
+    config["augmentation"]["train"].update(copy.deepcopy(AUGMENTATIONS[strength]))
+    config["logging"].update(wandb=False, tensorboard=False)
+    config["paths"].update(
+        output_dir=str(run_dir), checkpoint_dir=str(run_dir), log_dir=str(run_dir)
+    )
+    return config
+
+
 def train(root: Path, options: dict, run: str = None, prepared: bool = False) -> int:
     """Train one run. With prepared=True the dataset was built and uploaded by the app."""
     root = root.resolve()
@@ -769,51 +890,22 @@ def train(root: Path, options: dict, run: str = None, prepared: bool = False) ->
             f.write(json.dumps(event) + "\n")
 
     print(json.dumps({"run": run_dir.name}), flush=True)
-    if prepared:
-        summary = json.loads((root / ".myseg" / "dataset" / "summary.json").read_text())
-    else:
-        try:
+    project = load_project(root)
+    try:
+        config = run_config(root, options, run_dir, len(project["classes"]) + 1)
+        if prepared:
+            summary = json.loads((root / ".myseg" / "dataset" / "summary.json").read_text())
+        else:
             summary = prepare(root, options.get("val_split", 0.2), options.get("tile", 1024))
-        except SystemExit as error:
-            # Kept with the run, so it still says why it stopped once the live log is gone
-            emit(type="error", message=str(error))
-            raise
+    except SystemExit as error:
+        # Kept with the run, so it still says why it stopped once the live log is gone
+        emit(type="error", message=str(error))
+        raise
     emit(type="prepared", **summary)
     if summary["train"] == 0 or summary["val"] == 0:
         emit(type="error", message="Need labelled images for both train and validation.")
         return 1
 
-    project = load_project(root)
-    config = copy.deepcopy(yaml.safe_load((REPO / "configs" / "default.yaml").read_text()))
-    num_classes = len(project["classes"]) + 1
-    config["experiment"]["name"] = "run"
-    config["data"].update(
-        base_dir=str(root / ".myseg"),
-        dataset_dir="dataset",
-        image_size=options["image_size"],
-        num_classes=num_classes,
-    )
-    config["model"].update(
-        architecture=options["architecture"],
-        encoder=options["encoder"],
-        num_classes=num_classes,
-        encoder_weights=options.get("encoder_weights", "imagenet"),
-    )
-    config["training"].update(
-        epochs=options["epochs"],
-        batch_size=options["batch_size"],
-        learning_rate=options["learning_rate"],
-        num_workers=options.get("num_workers", 2),
-        gradient_accumulation_steps=1,
-    )
-    if config["training"]["num_workers"] == 0:
-        config["training"].update(persistent_workers=False, prefetch_factor=None)
-    config["loss"]["type"] = options["loss"]
-    config["loss"]["class_weights"] = [1.0] * num_classes
-    config["logging"].update(wandb=False, tensorboard=False)
-    config["paths"].update(
-        output_dir=str(run_dir), checkpoint_dir=str(run_dir), log_dir=str(run_dir)
-    )
     config_path = run_dir / "config.yaml"
     config_path.write_text(yaml.safe_dump(config, sort_keys=False))
     # The run keeps its classes, so its model's outputs keep their names when the project's change
@@ -835,18 +927,22 @@ def load_model(run_dir: Path, run: str, device: str) -> tuple:
     import torch
 
     from src.models import create_model
+    from src.models.segmentation import shape_of
 
     checkpoints = sorted(run_dir.glob("run_*/best_model.pth"))
     if not checkpoints:
         raise SystemExit(f"Run {run} has no saved model yet.")
     config = yaml.safe_load((run_dir / "config.yaml").read_text())
     model_cfg = config["model"]
+    # Its depth, decoder width and attention as it trained with them: runs from before these
+    # settings have none, and keep smp's defaults
     model = create_model(
         architecture=model_cfg["architecture"],
         encoder=model_cfg["encoder"],
         encoder_weights=None,
         num_classes=model_cfg["num_classes"],
         activation=None,
+        **shape_of(model_cfg),
     )
     # The newest, should a run hold more than one
     state = torch.load(checkpoints[-1], map_location=device, weights_only=True)
@@ -1137,6 +1233,51 @@ def export(root: Path, run: str) -> dict:
     }
 
 
+def estimate(options: dict, timing: bool = True) -> dict:
+    """The model the options ask for, before training it: its parameters, FLOPs per tile,
+    memory to train at the batch size and, when timing, milliseconds per tile here"""
+    from src.models.estimate import estimate as costs
+    from src.models.segmentation import model_kwargs
+
+    settings = model_settings(options)
+    try:
+        model_kwargs(
+            settings["architecture"],
+            settings["encoder_depth"],
+            settings["decoder_width"],
+            settings["decoder_attention_type"],
+        )
+    except ValueError as error:
+        raise SystemExit(str(error)) from None
+    size = whole(options, "image_size", 512, least=32)
+    batch = whole(options, "batch_size", 8, least=1)
+    classes = whole(options, "num_classes", 2, least=2)
+    return costs(settings, size, batch, classes, timing)
+
+
+def first_line(error: BaseException) -> str:
+    return (str(error).strip().splitlines() or [type(error).__name__])[0]
+
+
+def serve_estimates(requests, answers):
+    """Estimates, one asked for on each line of JSON read and answered on a line of its own with
+    the request's id. The app keeps this running, so only the first waits for PyTorch to load."""
+    for line in requests:
+        if not line.strip():
+            continue
+        request = {}
+        try:
+            request = json.loads(line)
+            # Only answers go out where the app reads them
+            with contextlib.redirect_stdout(sys.stderr):
+                answer = estimate(request["options"], request.get("time", True))
+        except (Exception, SystemExit) as error:
+            answer = {"error": first_line(error)}
+        ask = request.get("id") if isinstance(request, dict) else None
+        answers.write(json.dumps({"id": ask, **answer}) + "\n")
+        answers.flush()
+
+
 def main():
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
@@ -1157,6 +1298,9 @@ def main():
     p = sub.add_parser("export")
     p.add_argument("project", type=Path)
     p.add_argument("--run", required=True)
+    p = sub.add_parser("estimate")
+    p.add_argument("--options", help="JSON training options; without it, one request a line")
+    p.add_argument("--no-time", action="store_true", help="Leave out the time per tile")
     args = parser.parse_args()
 
     if args.command == "prepare":
@@ -1165,6 +1309,12 @@ def main():
         sys.exit(train(args.project, json.loads(args.options), args.run, args.prepared))
     elif args.command == "export":
         print(json.dumps(export(args.project, args.run)), flush=True)
+    elif args.command == "estimate" and args.options is None:
+        serve_estimates(sys.stdin, sys.stdout)
+    elif args.command == "estimate":
+        with contextlib.redirect_stdout(sys.stderr):
+            answer = estimate(json.loads(args.options), not args.no_time)
+        print(json.dumps(answer), flush=True)
     else:
         images = args.images or json.load(sys.stdin)
         for result in predict(args.project, args.run, images, args.min_area):

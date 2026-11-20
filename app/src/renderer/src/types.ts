@@ -43,6 +43,15 @@ export type Labels = { shapes: Shape[]; format: LabelFormat | null; stamp: Stamp
 export type TrainEvent = { type: string; [key: string]: any }
 export type Run = { name: string; events: TrainEvent[]; options: any; running: boolean; model: boolean; exported: boolean }
 export type Exported = { model: string; sidecar: string; classes: string[]; input_size: number; tile: number }
+/**
+ * A model's costs before training, from the engine's estimate: training memory in bytes, at the batch size, in float32 as
+ * on a CPU and with mixed precision as on a GPU; time per tile on `device`, or null when not timed (`busy`: a run here
+ * had the CPU)
+ */
+export type Estimate = {
+  params: number; gflops: number; memory: { float32: number; mixed: number }; image_size: number; batch_size: number
+  ms_per_tile: number | null; device: string | null; busy?: boolean
+}
 /** `failed` says why Seamtag didn't start */
 export type SeamtagResult = { launched?: boolean; missing?: boolean; canceled?: boolean; failed?: string }
 
@@ -70,6 +79,8 @@ declare global {
       exportModel(run: string): Promise<Exported>
       startTraining(options: unknown, target: { host: string; dir: string } | null): Promise<string>
       checkRemote(host: string, dir: string): Promise<{ freeKb: number; gpu: string; gpuJobs: number; torch: string }>
+      /** On this computer, or on the GPU machine when `target` names it */
+      estimateModel(options: unknown, time: boolean, target: { host: string; dir: string } | null): Promise<Estimate>
       stopTraining(): Promise<void>
       activeRun(): Promise<string | null>
       checkDataset(val: number, tile: number): Promise<any>

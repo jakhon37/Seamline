@@ -98,6 +98,8 @@ def _validate_model_config(model_cfg: Dict[str, Any]) -> None:
         "PAN",
         "Linknet",
         "MAnet",
+        "UPerNet",
+        "Segformer",
     ]
 
     if model_cfg["architecture"] not in valid_architectures:

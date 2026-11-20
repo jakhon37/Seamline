@@ -89,3 +89,18 @@ The banner images also include photos and boxes from D-Fire, by Pedro Vinícius 
 Venâncio, Adriano Chaves Lisboa and Adriano Vilela Barbosa. None of its images from third-party
 public datasets are used. Released under Creative Commons Zero v1.0 Universal
 https://github.com/gaiasd/DFireDataset
+
+## Pretrained encoder weights
+Seamline doesn't ship model weights. With **Start from ImageNet weights**, segmentation_models_pytorch
+downloads the encoder's ImageNet weights from its mirrors on the Hugging Face Hub (`smp-hub/<encoder>.imagenet`),
+which are copies of these originals. The Train page offers only encoders whose weights allow commercial use.
+- ResNet-18, 34 and 50, and MobileNetV2: torchvision, by the PyTorch team, licensed under the BSD 3-Clause
+  License. https://github.com/pytorch/vision
+- EfficientNet-B0 and B4: EfficientNet-PyTorch, by Luke Melas-Kyriazi, ported from Google's TensorFlow
+  weights, licensed under the Apache License 2.0. https://github.com/lukemelas/EfficientNet-PyTorch
+- DenseNet-121: pretrained-models.pytorch, by Remi Cadene, licensed under the BSD 3-Clause License.
+  https://github.com/Cadene/pretrained-models.pytorch
+
+All were trained on ImageNet. As torchvision's documentation says of its own, pretrained weights may carry
+terms that come from the data they were trained on, and whether a use is permitted is for their user to judge.
+SegFormer's MiT encoders aren't offered: NVIDIA licenses their weights for non-commercial use only.

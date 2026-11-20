@@ -52,8 +52,9 @@ for path in sorted(truth.glob("*.json")):
         same = true_mask == ids[s["label"]]
         iou = np.logical_and(m, same).sum() / max(np.logical_or(m, same).sum(), 1)
         any_true = np.logical_and(m, true_mask > 0).sum() / max(m.sum(), 1)
+        own = np.logical_and(m, same).sum() / max(m.sum(), 1)
         shapes.append({"image": name, "label": s["label"], "score": s.get("score"), "iou": float(iou),
-                       "on_a_defect": float(any_true), "area": int(m.sum())})
+                       "on_a_defect": float(any_true), "on_its_class": float(own), "area": int(m.sum())})
     images.append({"image": name, "shapes": len(ai), "true": len(doc["shapes"])})
 
 iou_per_class = {c: float(inter[i] / union[i]) if union[i] else None for c, i in ids.items()}
@@ -65,6 +66,13 @@ result = {
     "true_defects_found": found,
     "predicted_shapes": len(shapes),
     "images_with_no_prediction": sum(1 for i in images if not i["shapes"]),
+    # A proposal is on a defect when at least half of it lies on a true defect of any type, and of the right type
+    # when at least half of it lies on its own type
+    "proposals": {
+        "on_a_defect_and_right_class": sum(1 for s in shapes if s["on_a_defect"] >= 0.5 and s["on_its_class"] >= 0.5),
+        "on_a_defect_but_wrong_class": sum(1 for s in shapes if s["on_a_defect"] >= 0.5 and s["on_its_class"] < 0.5),
+        "mostly_off_any_defect": sum(1 for s in shapes if s["on_a_defect"] < 0.5),
+    },
     "shapes": shapes,
 }
 scored = [s for s in shapes if s["score"] is not None]
@@ -74,6 +82,11 @@ if len(scored) >= 8:
     result["spearman_score_iou"] = float(spearmanr([s["score"] for s in scored], [s["iou"] for s in scored]).statistic)
     result["least_certain_quarter_iou"] = float(np.mean([s["iou"] for s in scored[:q]]))
     result["most_certain_quarter_iou"] = float(np.mean([s["iou"] for s in scored[-q:]]))
+    # Quarters by score, the last taking any shapes left over
+    quarters = [scored[:q], scored[q : 2 * q], scored[2 * q : 3 * q], scored[3 * q :]]
+    result["iou_by_certainty_quarter"] = [float(np.mean([s["iou"] for s in part])) for part in quarters]
+    result["shapes_per_quarter"] = [len(part) for part in quarters]
+    result["score_range"] = [[part[0]["score"], part[-1]["score"]] for part in quarters]
     wrong = [i for i, s in enumerate(scored) if s["iou"] < 0.5]
     half = len(scored) // 2
     result["wrong_shapes"] = len(wrong)

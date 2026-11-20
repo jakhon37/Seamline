@@ -487,6 +487,15 @@ function runName(at: Date) {
   return `${day}_${two(at.getHours())}${two(at.getMinutes())}${two(at.getSeconds())}`
 }
 
+// The engine as it is here, and the environment it runs in there
+async function sendCode(host: string, dir: string, log: (line: string) => void) {
+  log('Sending code…')
+  await ssh(host, `mkdir -p ${dir}/code`)
+  await rsync('--delete', '--exclude=__pycache__', ...['engine', 'scripts', 'src', 'configs'].map((d) => path.join(REPO, d)), `${host}:${dir}/code/`)
+  log('Setting up the environment if needed…')
+  await ssh(host, `cd ${dir} && python3 code/engine/remote_setup.py venv`)
+}
+
 async function startRemote(options: any, target: { host: string; dir: string }) {
   const { host, dir } = target
   const log = (line: string) => send('train:log', line + '\n')
@@ -508,11 +517,7 @@ async function startRemote(options: any, target: { host: string; dir: string }) 
   while (existsSync(meta('runs', runName(new Date(at))))) at += 1000
   const name = runName(new Date(at))
   const project = `${dir}/projects/${name}`
-  log('Sending code…')
-  await ssh(host, `mkdir -p ${dir}/code`)
-  await rsync('--delete', '--exclude=__pycache__', ...['engine', 'scripts', 'src', 'configs'].map((d) => path.join(REPO, d)), `${host}:${dir}/code/`)
-  log('Setting up the environment if needed…')
-  await ssh(host, `cd ${dir} && python3 code/engine/remote_setup.py venv`)
+  await sendCode(host, dir, log)
   await ssh(host, `mkdir -p ${project}/.myseg/runs/${name}`)
   log(`Uploading dataset (${(sizeKb / 1024).toFixed(0)} MB)…`)
   await rsync(meta('dataset'), meta('project.json'), `${host}:${project}/.myseg/`)
@@ -664,6 +669,88 @@ function engine(args: string[]): Promise<any> {
       }
     })
   })
+}
+
+// Estimates go to an engine kept running for them, so only the first waits for PyTorch to load.
+// It holds a few hundred MB, so it ends once it has been idle a while, and with the app.
+type Estimator = { proc: ChildProcess; output: string; errors: string; waiting: Map<number, (answer: any) => void>; idle?: NodeJS.Timeout }
+let estimator: Estimator | null = null
+let estimates = 0
+const ESTIMATOR_IDLE = 120000
+
+function startEstimator(): Estimator {
+  const proc = spawn(PYTHON, [ENGINE, 'estimate'], { cwd: REPO, env: { ...process.env, PYTHONUNBUFFERED: '1' } })
+  const e: Estimator = { proc, output: '', errors: '', waiting: new Map() }
+  const fail = (message: string) => {
+    if (estimator === e) estimator = null
+    clearTimeout(e.idle)
+    for (const answer of e.waiting.values()) answer({ error: message })
+    e.waiting.clear()
+  }
+  proc.stdout!.on('data', (chunk: Buffer) => {
+    e.output += chunk.toString()
+    let end: number
+    while ((end = e.output.indexOf('\n')) >= 0) {
+      const line = e.output.slice(0, end)
+      e.output = e.output.slice(end + 1)
+      let answer: any
+      try { answer = JSON.parse(line) } catch { continue }
+      e.waiting.get(answer?.id)?.(answer)
+      e.waiting.delete(answer?.id)
+    }
+    if (!e.waiting.size) {
+      e.idle = setTimeout(() => {
+        // Estimates asked for from now on start an engine of their own
+        if (estimator === e) estimator = null
+        proc.stdin!.end()
+      }, ESTIMATOR_IDLE)
+    }
+  })
+  // What it says last before it stops is why, as with the engine's other commands
+  proc.stderr!.on('data', (chunk: Buffer) => { e.errors = (e.errors + chunk.toString()).slice(-8000) })
+  proc.stdin!.on('error', () => {})
+  proc.on('error', (error) => fail(`The engine couldn't start: ${error.message}`))
+  proc.on('exit', (code) => fail(e.errors.trim().split('\n').pop() || `The engine stopped with exit code ${code}.`))
+  return e
+}
+
+function estimateHere(options: any, time: boolean): Promise<any> {
+  estimator ??= startEstimator()
+  const e = estimator
+  clearTimeout(e.idle)
+  const id = ++estimates
+  return new Promise((resolve, reject) => {
+    e.waiting.set(id, (answer) => (answer.error ? reject(new Error(answer.error)) : resolve(answer)))
+    e.proc.stdin!.write(JSON.stringify({ id, options, time }) + '\n')
+  })
+}
+
+function stopEstimator() {
+  estimator?.proc.kill()
+  estimator = null
+}
+
+// On the GPU machine, through the same code and environment as training there. Its GPU must be
+// free, or the time measured is another job's as much as this model's.
+async function estimateThere(options: any, target: { host: string; dir: string }) {
+  const { host, dir } = target
+  const remote = await checkRemote(host, dir)
+  if (remote.gpuJobs > 0) throw new Error(`The GPU on ${host} is busy with ${remote.gpuJobs} other job(s).`)
+  await sendCode(host, dir, () => {})
+  const out = await ssh(host, `cd ${dir}/code && ../venv/bin/python engine/studio.py estimate --options ${quote(JSON.stringify(options))}`)
+  try {
+    return JSON.parse(out.trim().split('\n').pop()!)
+  } catch {
+    throw new Error(`The engine on ${host} gave no estimate: ${out.trim().split('\n').pop() || 'it printed nothing'}`)
+  }
+}
+
+// A local run has the CPU: a time measured now would be the run's as much as the model's
+async function estimateModel(options: any, time: boolean, target: { host: string; dir: string } | null) {
+  if (target) return estimateThere(options, target)
+  const busy = time && !!job
+  const answer = await estimateHere(options, time && !busy)
+  return busy ? { ...answer, busy } : answer
 }
 
 async function listRuns() {
@@ -1133,6 +1220,9 @@ function registerIpc() {
   ipcMain.handle('runs:log', (_e, name: string) => runLog(name))
   ipcMain.handle('train:start', (_e, options, target) => launch(options, target))
   ipcMain.handle('remote:check', (_e, host: string, dir: string) => checkRemote(host, dir))
+  ipcMain.handle('model:estimate', (_e, options: unknown, time: boolean, target: { host: string; dir: string } | null) =>
+    estimateModel(options, time, target)
+  )
   ipcMain.handle('train:stop', stopTraining)
   ipcMain.handle('train:active', () => remoteJob?.run ?? job?.run ?? null)
   ipcMain.handle('dataset:check', (_e, val: number, tile: number) =>
@@ -1181,5 +1271,6 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   stopLocal()
   stopPrelabel()
+  stopEstimator()
   app.quit()
 })
