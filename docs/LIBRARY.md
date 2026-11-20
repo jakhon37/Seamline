@@ -5,11 +5,13 @@ The library under [Seamline](../README.md): semantic segmentation training, eval
 ## Features
 
 **Models and training**
-- 9 architectures: Unet, Unet++, DeepLabV3, DeepLabV3+, FPN, PSPNet, PAN, Linknet, MAnet
+- 11 architectures: Unet, Unet++, DeepLabV3, DeepLabV3+, FPN, PSPNet, PAN, Linknet, MAnet, UPerNet, Segformer, with a choice of encoder depth and decoder width where the architecture takes them, and scSE attention for Unet and Unet++
 - Encoders from segmentation_models_pytorch: ResNet, EfficientNet, DenseNet, MobileNet and more
 - 4 losses: focal, Dice, cross-entropy, and combined focal and Dice
 - Multi-GPU training with DDP (NCCL or Gloo), and a DataParallel fallback
 - Mixed precision, gradient accumulation, gradient checkpointing, early stopping
+- Learning-rate warm-up, then a rate lowered on plateaus, a cosine or a constant rate
+- Estimates before training: parameters, GFLOPs per tile and training memory, counted on PyTorch's meta device, and the time per tile on the machine
 
 **Inference and export**
 - Single-image and batch inference
@@ -17,7 +19,7 @@ The library under [Seamline](../README.md): semantic segmentation training, eval
 - ONNX export
 
 **Tooling**
-- 168 unit tests, of which 10 need a GPU and skip on CPU
+- 646 unit tests, of which 10 need a GPU and skip on CPU, and 193 are marked `slow`, which CI leaves out: most of the networks the Train page offers, each trained a step and exported
 - GitHub Actions, pre-commit hooks and a Makefile
 - Docker with GPU pass-through
 - TensorBoard and Weights & Biases logging

@@ -67,6 +67,23 @@ Both apps keep the class list in `.myseg/project.json`. When Seamline saves it, 
 
 On the Train page, a run with a saved model has **Export for Seamtag** once it has stopped. It writes the model as `model.onnx` in the run's folder, `.myseg/runs/<run>/`, beside a `model.json` that gives the run's classes, input size, tile and normalisation. Seamtag 3.3 and later list every run exported so under AI → Model for pre-labelling, newest first, and pre-label with the newest unless a model was chosen for the folder there or with AI → Choose a model…. In Seamtag 3.2.0, pick the model with AI → Choose a model…, and show hidden files in its file dialog to see `.myseg` (Ctrl+H, or Cmd+Shift+. on a Mac). **Open in Seamtag** opens the folder there. A run trained before runs kept their class names exports with the project's classes, as long as there are as many as the model learned. From the repo root, `.venv/bin/python engine/studio.py export <folder> --run <run>` does the same.
 
+## Choose the model
+
+**Model size** on the Train page picks the network: **Fast**, **Balanced** and **Accurate** are a Unet on ResNet-18, ResNet-34 and ResNet-50, with 14.3, 24.4 and 32.5 million parameters for one class. Beside it, an estimate gives the network's parameters, its work for one tile in GFLOPs (two to a multiply-add), the memory training takes at the batch size, and the time one tile takes on this computer. The memory counts weights, gradients, AdamW's state and the tensors kept for the backward pass, so the device's own needs, such as a GPU's context, come on top. With **Run on** set to the GPU machine, memory is given for mixed precision, as training there uses it, and **Time a tile on …** times a tile on that machine, after sending the code as training does. While a run trains on this computer, a tile isn't timed here.
+
+**Advanced** holds everything a size sets: architecture, encoder, encoder depth, decoder width, the decoder's scSE attention (Unet and Unet++), loss, learning-rate schedule and warm-up epochs, augmentation strength, seed and early-stopping patience. Changing any of them makes the size **Custom**, and choosing a size again sets them all back. The page offers only what trains and exports, as listed in `app/src/shared/models.json`, which `tests/unit/test_model_choices.py` checks pair by pair:
+
+- DeepLabV3, DeepLabV3+ and PAN can't be built on DenseNet, and they and UPerNet train on batches of 2 or more.
+- FPN and PSPNet keep their own encoder depth, as their heads upsample by a fixed factor.
+- scSE attention needs a decoder at least as wide as smp's own.
+- Inputs start at 64 pixels, and at 128 for PAN.
+
+Each encoder starts from ImageNet weights that allow commercial use: torchvision's (BSD-3-Clause) for ResNet and MobileNetV2, EfficientNet-PyTorch's (Apache-2.0) for EfficientNet, and pretrained-models' (BSD-3-Clause) for DenseNet. SegFormer's own MiT encoders aren't offered, as NVIDIA's weights for them are for non-commercial use only; Segformer is offered on the encoders above. DPT isn't offered, as smp builds it only on ViT encoders.
+
+A run keeps these settings in its `config.yaml`, so pre-labelling and **Export for Seamtag** build the network it trained. Runs from before them have none and build as they always did. The export and its `model.json` are as before.
+
+**Duplicate**, above a run's results, puts the run's settings back in the form, with where it ran, so a variant is one change away. The table button beside **Runs** compares runs: when each started, its network and input size, its parameters and time per tile as measured on its machine when it started, and its best IoU. Runs from before runs measured themselves have no costs. From the repo root, `.venv/bin/python engine/studio.py estimate --options '{"architecture": "Unet", "encoder": "resnet34", "image_size": 512, "batch_size": 8}'` prints the estimate.
+
 ## Train on a GPU machine
 
 On the Train page, set **Run on** to **GPU machine over SSH**, then enter `user@host` and a remote folder. You need key-based SSH, rsync on both ends, and a GPU PyTorch for the machine's `python3`.
@@ -89,4 +106,6 @@ npm run test:e2e
 
 `e2e/formats.spec.ts`, `e2e/two-apps.spec.ts` and `e2e/seamtag.spec.ts` work on folders as Seamtag leaves them, with label files from Seamtag's own tests. Each launch gets a home folder of its own, and `SEAMLINE_SEAMTAG` names a stand-in for Seamtag, or nothing, so they never touch your settings or start the Seamtag installed on the machine. Where they need the engine, a few lines of Node stand in for it. The tests open the app's window: run them on a virtual X server, such as Xvfb, to keep it off your screen.
 
-The engine's tests are in `../tests/unit/test_studio_*.py`, and [`../tests/fixtures/seamtag`](../tests/fixtures/seamtag/README.md) holds label files written by labelme 7.9.1 and LabelImg, with the masks and readings they're compared with, and says how they were made.
+`e2e/model-size.spec.ts` trains a small network for real on the CPU with every advanced setting changed, exports it, duplicates and compares runs, and times a tile on the stand-in GPU machine through the real engine.
+
+The engine's tests are in `../tests/unit/test_studio_*.py`, `../tests/unit/test_model_size.py` and `../tests/unit/test_model_choices.py`; the last trains a step and exports every network the page offers, and marks all but a sample of them `slow`, which CI leaves out. and [`../tests/fixtures/seamtag`](../tests/fixtures/seamtag/README.md) holds label files written by labelme 7.9.1 and LabelImg, with the masks and readings they're compared with, and says how they were made.
