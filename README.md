@@ -91,7 +91,9 @@ These are the model's best for each defect type, so they're better than average.
 
 ## Install
 
-Seamline runs from source, and is developed and tested on Ubuntu 24.04. You need Git, Node.js 22 or later, and [uv](https://docs.astral.sh/uv/getting-started/installation/), which fetches Python if you don't have it.
+Download the installer for your system from [the latest release](https://github.com/jakhon37/Seamline/releases/latest): Windows 10 and 11, macOS on Apple silicon, or Linux, as a `.deb` or an AppImage. On first start, Seamline sets up its engine: Python and PyTorch in the build that fits your computer, from 0.3 GB to download for the CPU build to 3.9 GB for CUDA on an older NVIDIA GPU. The installers aren't signed, so Windows and macOS warn about them the first time. The [install guide](docs/INSTALL.md) says what to do then, how to set up a GPU machine to train on over SSH, and where disk space goes.
+
+To run it from source instead, you need Git, Node.js 22 or later, and [uv](https://docs.astral.sh/uv/getting-started/installation/), which fetches Python if you don't have it:
 
 ```bash
 git clone https://github.com/jakhon37/Seamline.git
@@ -104,7 +106,7 @@ npm run build
 npm start
 ```
 
-`--torch-backend=auto` installs PyTorch's CUDA build when the computer has an NVIDIA driver, and its much smaller CPU build when it hasn't. On an NVIDIA GPU from before the RTX 20 and GTX 16 series, write `cu126` in place of `auto`. The [install guide](docs/INSTALL.md) covers Macs, choosing the build yourself, setting up a GPU machine to train on over SSH, disk space, and fixes for common problems, such as a `chrome-sandbox` error on Ubuntu. [The app's guide](app/README.md) has the keys and how each part works.
+`--torch-backend=auto` installs PyTorch's CUDA build when the computer has an NVIDIA driver, and its much smaller CPU build when it hasn't; on an NVIDIA GPU from before the RTX 20 and GTX 16 series, write `cu126` in place of `auto`. [The app's guide](app/README.md) has the keys and how each part works.
 
 ## License and credits
 
