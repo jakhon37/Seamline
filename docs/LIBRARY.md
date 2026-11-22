@@ -137,7 +137,7 @@ make ci            # Run the full local pipeline
 - [Optimization Features](OPTIMIZATION_FEATURES.md)
 - [Multi-GPU Training](MULTI_GPU_TRAINING.md)
 - [Training Scripts](TRAINING_SCRIPTS_COMPARISON.md)
-- [Architecture](ARCHITECTURE.md)
+- [Architecture](LIBRARY_ARCHITECTURE.md)
 - [CI/CD](CI_CD.md)
 - [Contributing](CONTRIBUTING.md)
 
