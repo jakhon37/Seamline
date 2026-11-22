@@ -178,3 +178,19 @@ canvas.tool-polygon, canvas.tool-rectangle, canvas.tool-brush, canvas.tool-erase
 .compare tbody tr.on { background: #24395f; }
 .compare td.top { color: var(--ok); font-weight: 600; }
 .compare td .muted { font-size: 11px; }
+.dialog.engine { max-width: 540px; width: 100%; }
+.dialog .found { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; }
+.choices { display: grid; gap: 8px; margin: 0 0 16px; }
+.choice { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.choice.on { border-color: var(--accent); background: #4f8cff14; }
+.choice input { width: auto; margin: 2px 0 0; }
+.choice > span { display: grid; gap: 2px; }
+.choice .size { font-size: 12px; }
+.bar { height: 6px; border-radius: 3px; background: var(--raised); overflow: hidden; margin: 0 0 8px; }
+.bar i { display: block; height: 100%; background: var(--accent); transition: width .3s; }
+.dialog p.line { font-size: 12px; overflow-wrap: anywhere; min-height: 3em; }
+.engine-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 8px 0 0; font-size: 12px; }
+.engine-line button { color: var(--accent); padding: 0; }
+.engine-missing { display: grid; gap: 8px; justify-items: start; margin: 0 0 12px; padding: 10px 12px; border: 1px solid #f7b73155; border-radius: 8px; background: #f7b7310f; }
+.engine-missing .warn { margin: 0; }
+.link { color: var(--accent); padding: 0; text-decoration: underline; }

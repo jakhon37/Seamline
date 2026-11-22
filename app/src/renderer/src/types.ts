@@ -55,6 +55,26 @@ export type Estimate = {
 /** `failed` says why Seamtag didn't start */
 export type SeamtagResult = { launched?: boolean; missing?: boolean; canceled?: boolean; failed?: string }
 
+/** The engine's Python environment, as the main process finds it (see src/main/engine.ts) */
+export type Backend = 'auto' | 'cu126' | 'cpu'
+export type EngineChoice = { backend: Backend; title: string; detail: string; download: string; disk: string }
+export type EngineInfo = { backend: Backend; torch: string; cuda: boolean; device: string; usable: boolean; requirements: string; at: string }
+export type EngineStatus = {
+  ready: boolean
+  managed: boolean
+  python: string
+  info: EngineInfo | null
+  outdated: boolean
+  gpu: { name: string; capability: number; driver: string } | null
+  suggested: Backend
+  choices: EngineChoice[]
+  canSetUp: boolean
+  /** Windows lacks the Visual C++ runtime PyTorch and ONNX Runtime load */
+  runtimeMissing: boolean
+  platform: string
+}
+export type EngineProgress = { line?: string; step?: string; downloaded?: number; total?: number }
+
 declare global {
   interface Window {
     api: {
@@ -94,6 +114,15 @@ declare global {
       onLog(fn: (text: string) => void): () => void
       onEvents(fn: (p: { run: string; events: TrainEvent[] }) => void): () => void
       onExit(fn: (p: { run: string; code: number }) => void): () => void
+      /** process.platform of the main process */
+      platform: string
+      engineStatus(): Promise<EngineStatus>
+      /** Makes Seamline's own engine environment with this PyTorch build, or brings it up to date (`update`) */
+      setupEngine(backend: Backend, update: boolean): Promise<EngineInfo>
+      cancelEngineSetup(): Promise<void>
+      /** Microsoft's Visual C++ Redistributable, in the browser */
+      openRuntimeDownload(): Promise<void>
+      onEngineProgress(fn: (progress: EngineProgress) => void): () => void
     }
   }
 }

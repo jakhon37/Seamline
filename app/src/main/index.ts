@@ -10,10 +10,20 @@ import { classesIn, type LabelClass, projectFile } from '../shared/classes'
 import { FORMAT_NAMES, type LabelFormat, looksLikeCreateML, readClasses, readCreateML, readVoc, readYolo, YOLO_CLASSES } from '../shared/formats'
 import { hasArea, readLabelMe, summarize } from '../shared/labels'
 import { nameFold } from '../shared/names'
+import { cancelSetup, codeRoot, engineEnv, enginePython, engineStatus, pruneBytecode, runEngineCli, setupEngine, stopProcess, VC_REDIST, type Backend } from './engine'
 
-const REPO = path.resolve(__dirname, '../../..')
-const PYTHON = process.env.MYSEG_PYTHON || path.join(REPO, '.venv/bin/python')
-const ENGINE = path.join(REPO, 'engine/studio.py')
+// The release checks and tests: a profile of their own, and answers on the command line with no window
+if (process.env.SEAMLINE_USER_DATA) app.setPath('userData', process.env.SEAMLINE_USER_DATA)
+if (process.argv.includes('--version')) {
+  process.stdout.write(`Seamline ${app.getVersion()}\n`)
+  app.exit(0)
+}
+const CLI = process.argv.includes('--setup-engine') || process.argv.includes('--check-engine')
+if (CLI) runEngineCli(process.argv).then((code) => app.exit(code ?? 0))
+
+// The engine's code: the repo when run from source, the app's resources once installed
+const REPO = codeRoot()
+const ENGINE = path.join(REPO, 'engine', 'studio.py')
 // What Seamtag lists, so both apps show the same images
 const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.jfif', '.png', '.bmp', '.gif', '.tif', '.tiff', '.webp', '.avif'])
 const PALETTE = ['#4f8cff', '#ff6b6b', '#3ecf8e', '#f7b731', '#b57bff', '#22c7d6', '#ff8f4d', '#ec6fb3']
@@ -49,10 +59,25 @@ const serial = queue()
 // The same for the class list, apart, so a change to it doesn't wait for the folder to be read again
 const classTurn = queue()
 
-const SSH_OPTS = [
-  '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', '-o', 'ControlMaster=auto',
-  '-o', `ControlPath=${path.join(tmpdir(), 'myseg-ssh-%C')}`, '-o', 'ControlPersist=60'
-]
+// Commands share one connection through a socket, whose path must fit a Unix socket's 104 bytes on
+// a Mac or 108 on Linux, with the 17 characters ssh adds while it makes it (%C is 40). macOS's
+// temporary folder is too long for it, so the socket may go in ~/.ssh, or else isn't shared.
+function connectionSharing(): string[] {
+  const limit = process.platform === 'darwin' ? 104 : 108
+  for (const dir of [tmpdir(), path.join(homedir(), '.ssh')]) {
+    const socket = path.join(dir, 'myseg-ssh-%C')
+    if (existsSync(dir) && Buffer.byteLength(socket) - 2 + 40 + 17 < limit) {
+      return ['-o', 'ControlMaster=auto', '-o', `ControlPath=${socket}`, '-o', 'ControlPersist=60']
+    }
+  }
+  return []
+}
+const SSH_OPTS = ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', ...connectionSharing()]
+// Training over SSH sends the dataset with rsync, which Windows doesn't have
+const NO_SSH = process.platform === 'win32'
+  ? "Training on a GPU machine over SSH isn't available on Windows: it sends the dataset with rsync, which Windows doesn't have."
+  : ''
+
 // Room left on the remote disk for the environment, checkpoints and logs
 const REMOTE_RESERVE_KB = 3 * 1024 * 1024
 const quote = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`
@@ -460,9 +485,9 @@ async function openImage(name: string) {
   }
 }
 
-function run(cmd: string, args: string[]): Promise<string> {
+function run(cmd: string, args: string[], options: { cwd?: string; env?: NodeJS.ProcessEnv } = {}): Promise<string> {
   return new Promise((resolve, reject) => {
-    execFile(cmd, args, { maxBuffer: 1 << 26 }, (err, stdout, stderr) => {
+    execFile(cmd, args, { maxBuffer: 1 << 26, windowsHide: true, ...options }, (err, stdout, stderr) => {
       if (err) reject(new Error(stderr.trim().split('\n').pop() || err.message))
       else resolve(stdout)
     })
@@ -472,6 +497,7 @@ const ssh = (host: string, command: string) => run('ssh', [...SSH_OPTS, host, co
 const rsync = (...args: string[]) => run('rsync', ['-a', '-e', ['ssh', ...SSH_OPTS].join(' '), ...args])
 
 async function checkRemote(host: string, dir: string) {
+  if (NO_SSH) throw new Error(NO_SSH)
   const out = await ssh(host, `mkdir -p ${dir} && cd ${dir} && df -Pk . | tail -1 | awk '{print $4}'; ` +
     `nvidia-smi --query-gpu=name,memory.free,memory.total --format=csv,noheader 2>/dev/null | head -1; ` +
     `nvidia-smi --query-compute-apps=pid --format=csv,noheader 2>/dev/null | wc -l; ` +
@@ -643,7 +669,7 @@ async function abandonRemote(j: RemoteJob) {
 
 // A run can outlive the app or a visit to another folder: pick it up again when its project opens
 async function resumeRemote(base: string) {
-  if (remoteJob) return
+  if (remoteJob || NO_SSH) return
   const dir = metaIn(base, 'runs')
   if (!existsSync(dir)) return
   for (const name of await fs.readdir(dir)) {
@@ -659,7 +685,7 @@ async function resumeRemote(base: string) {
 
 function engine(args: string[]): Promise<any> {
   return new Promise((resolve, reject) => {
-    execFile(PYTHON, [ENGINE, ...args], { cwd: REPO, maxBuffer: 1 << 28 }, (err, stdout, stderr) => {
+    execFile(enginePython(), [ENGINE, ...args], { cwd: REPO, env: engineEnv(), windowsHide: true, maxBuffer: 1 << 28 }, (err, stdout, stderr) => {
       if (err) return reject(new Error(stderr.trim().split('\n').pop() || err.message))
       // Its answer is the last line; anything else it printed came before
       try {
@@ -679,7 +705,7 @@ let estimates = 0
 const ESTIMATOR_IDLE = 120000
 
 function startEstimator(): Estimator {
-  const proc = spawn(PYTHON, [ENGINE, 'estimate'], { cwd: REPO, env: { ...process.env, PYTHONUNBUFFERED: '1' } })
+  const proc = spawn(enginePython(), [ENGINE, 'estimate'], { cwd: REPO, env: engineEnv(), windowsHide: true })
   const e: Estimator = { proc, output: '', errors: '', waiting: new Map() }
   const fail = (message: string) => {
     if (estimator === e) estimator = null
@@ -725,9 +751,16 @@ function estimateHere(options: any, time: boolean): Promise<any> {
   })
 }
 
-function stopEstimator() {
-  estimator?.proc.kill()
+// Resolves once it has gone, so its environment can be replaced
+function stopEstimator(): Promise<void> {
+  const proc = estimator?.proc
   estimator = null
+  if (!proc || proc.exitCode !== null || proc.signalCode !== null) return Promise.resolve()
+  return new Promise((resolve) => {
+    proc.once('exit', () => resolve())
+    proc.kill()
+    setTimeout(resolve, 5000)
+  })
 }
 
 // On the GPU machine, through the same code and environment as training there. Its GPU must be
@@ -807,8 +840,9 @@ async function launch(options: any, target: { host: string; dir: string } | null
 }
 
 function startTraining(options: unknown) {
-  const proc = spawn(PYTHON, [ENGINE, 'train', root, '--options', JSON.stringify(options)], {
-    cwd: REPO, detached: true, env: { ...process.env, PYTHONUNBUFFERED: '1' }
+  // Its own process group on Unix, so stopping it stops what it started too
+  const proc = spawn(enginePython(), [ENGINE, 'train', root, '--options', JSON.stringify(options)], {
+    cwd: REPO, detached: process.platform !== 'win32', env: engineEnv(), windowsHide: true
   })
   return new Promise<string>((resolve, reject) => {
     let pending = ''
@@ -848,7 +882,7 @@ async function pollEvents() {
 }
 
 function stopLocal() {
-  if (job?.proc.pid) process.kill(-job.proc.pid, 'SIGTERM')
+  stopProcess(job?.proc)
 }
 
 // A local run may have started from another folder, so an attached remote run is the one on screen
@@ -966,7 +1000,7 @@ function haveLabels(base: string, name: string, key: string, fresh: boolean) {
 
 async function predictOne(runName: string, images: string[]) {
   images.forEach(inProject)
-  const lines = (await run(PYTHON, [ENGINE, 'predict', root, '--run', runName, '--images', ...images])).trim().split('\n')
+  const lines = (await run(enginePython(), [ENGINE, 'predict', root, '--run', runName, '--images', ...images], { cwd: REPO, env: engineEnv() })).trim().split('\n')
   const results: Record<string, any[]> = {}
   let device = ''
   for (const line of lines.filter((l) => l.startsWith('{')).map((l) => JSON.parse(l))) {
@@ -984,8 +1018,8 @@ function prelabelAll(runName: string, names: string[]) {
   if (prelabelJob) throw new Error('Pre-labelling is already running')
   names.forEach(inProject)
   const base = root
-  const proc = spawn(PYTHON, [ENGINE, 'predict', root, '--run', runName], {
-    cwd: REPO, detached: true, env: { ...process.env, PYTHONUNBUFFERED: '1' }
+  const proc = spawn(enginePython(), [ENGINE, 'predict', root, '--run', runName], {
+    cwd: REPO, detached: process.platform !== 'win32', env: engineEnv(), windowsHide: true
   })
   const current: PrelabelJob = { proc, stopped: false }
   prelabelJob = current
@@ -1059,11 +1093,7 @@ function prelabelAll(runName: string, names: string[]) {
 function stopPrelabel() {
   if (!prelabelJob?.proc.pid) return
   prelabelJob.stopped = true
-  try {
-    process.kill(-prelabelJob.proc.pid, 'SIGTERM')
-  } catch {
-    // Already gone
-  }
+  stopProcess(prelabelJob.proc)
 }
 
 // Seamtag, the label-only app made for the same folders: where the user put it, or where its installers do
@@ -1231,9 +1261,21 @@ function registerIpc() {
   ipcMain.handle('model:predict', (_e, runName: string, images: string[]) => predictOne(runName, images))
   ipcMain.handle('prelabel:start', (_e, runName: string, names: string[]) => prelabelAll(runName, names))
   ipcMain.handle('prelabel:stop', stopPrelabel)
+  ipcMain.handle('engine:status', () => engineStatus())
+  // Its environment is replaced, so nothing may be using it: the engine kept for estimates goes,
+  // and a run or pre-labelling here has to end first
+  ipcMain.handle('engine:setup', async (_e, backend: Backend, update: boolean) => {
+    if (job || prelabelJob || launching) throw new Error('Stop the training run or pre-labelling on this computer first: they use the engine.')
+    await stopEstimator()
+    return setupEngine(backend, (progress) => send('engine:progress', progress), update)
+  })
+  ipcMain.handle('engine:cancel', () => cancelSetup())
+  ipcMain.handle('engine:runtime', () => shell.openExternal(VC_REDIST))
 }
 
 app.whenReady().then(() => {
+  if (CLI) return
+  pruneBytecode()
   protocol.handle('myseg', async (request) => {
     const file = path.resolve(decodeURIComponent(new URL(request.url).pathname.slice(1)))
     if (!root || !file.startsWith(root + path.sep)) return new Response('Forbidden', { status: 403 })
@@ -1276,5 +1318,6 @@ app.on('window-all-closed', () => {
   stopLocal()
   stopPrelabel()
   stopEstimator()
+  cancelSetup()
   app.quit()
 })

@@ -37,5 +37,11 @@ contextBridge.exposeInMainWorld('api', {
   flushed: () => ipc.send('app:flushed'),
   onLog: on('train:log'),
   onEvents: on('train:events'),
-  onExit: on('train:exit')
+  onExit: on('train:exit'),
+  platform: process.platform,
+  engineStatus: () => ipc.invoke('engine:status'),
+  setupEngine: (backend: string, update: boolean) => ipc.invoke('engine:setup', backend, update),
+  cancelEngineSetup: () => ipc.invoke('engine:cancel'),
+  openRuntimeDownload: () => ipc.invoke('engine:runtime'),
+  onEngineProgress: on('engine:progress')
 })
