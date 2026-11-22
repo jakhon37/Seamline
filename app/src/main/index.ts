@@ -58,7 +58,7 @@ const REMOTE_RESERVE_KB = 3 * 1024 * 1024
 const quote = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`
 
 protocol.registerSchemesAsPrivileged([
-  { scheme: 'myseg', privileges: { standard: true, supportFetchAPI: true, stream: true, secure: true } }
+  { scheme: 'myseg', privileges: { standard: true, supportFetchAPI: true, stream: true, secure: true, corsEnabled: true } }
 ])
 
 const metaIn = (base: string, ...p: string[]) => path.join(base, '.myseg', ...p)
@@ -1234,10 +1234,14 @@ function registerIpc() {
 }
 
 app.whenReady().then(() => {
-  protocol.handle('myseg', (request) => {
+  protocol.handle('myseg', async (request) => {
     const file = path.resolve(decodeURIComponent(new URL(request.url).pathname.slice(1)))
     if (!root || !file.startsWith(root + path.sep)) return new Response('Forbidden', { status: 403 })
-    return net.fetch(pathToFileURL(file).toString())
+    // Shared with the page's own origin, so drawing an image leaves the canvas readable
+    const response = await net.fetch(pathToFileURL(file).toString())
+    const headers = new Headers(response.headers)
+    headers.set('Access-Control-Allow-Origin', '*')
+    return new Response(response.body, { status: response.status, headers })
   })
   registerIpc()
   win = new BrowserWindow({

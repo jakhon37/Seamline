@@ -171,6 +171,7 @@ const Labeler = forwardRef<LabelerHandle, Props>(function Labeler({ data, change
       return img
     }
     img = new Image()
+    img.crossOrigin = 'anonymous'
     img.onload = () => invalidate()
     img.src = url
     cache.set(url, img)
