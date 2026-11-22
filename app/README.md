@@ -4,13 +4,7 @@ Label images and train segmentation models in one desktop app, built on [mySegLi
 
 ## Run
 
-Needs Node 20+ and the repo's Python requirements in `.venv` at the repo root. Set `MYSEG_PYTHON` to use another interpreter that has them: with Pillow older than 12, 16-bit grey PNGs train as white and AVIF images can't be read.
-
-```bash
-npm install
-npm run build
-npm start
-```
+The [install guide](../docs/INSTALL.md) sets up the engine's Python environment in `.venv` at the repo root and builds the app. After that, `npm start` here starts it. Set `MYSEG_PYTHON` to use another interpreter that has the requirements: with Pillow older than 12, 16-bit grey PNGs train as white and AVIF images can't be read.
 
 Open any folder of images. Seamline lists the JPEG, JFIF, PNG, BMP, GIF, TIFF, WebP and AVIF images in it and its subfolders, leaving out files and folders whose names start with a dot, such as `.myseg`, and folders linked from elsewhere. BMP images are shown whole rather than from a tile pyramid, since the libvips in sharp can't read them. Labels are saved beside each image as LabelMe JSON, so labelme and [Seamtag](https://github.com/jakhon37/Seamtag) open the same folder. Saving keeps the rest of the file as it was, including the image labelme keeps in it. A label file that can't be read is marked red and never written over. Project settings, the tile cache, the prepared dataset and runs go in `.myseg/` inside that folder.
 
@@ -86,7 +80,7 @@ A run keeps these settings in its `config.yaml`, so pre-labelling and **Export f
 
 ## Train on a GPU machine
 
-On the Train page, set **Run on** to **GPU machine over SSH**, then enter `user@host` and a remote folder. You need key-based SSH, rsync on both ends, and a GPU PyTorch for the machine's `python3`.
+On the Train page, set **Run on** to **GPU machine over SSH**, then enter `user@host` and a remote folder. You need key-based SSH, rsync on both ends, and a GPU PyTorch for the machine's `python3`: the [install guide](../docs/INSTALL.md#set-up-a-gpu-machine-for-training-over-ssh) says how to set one up.
 
 The app prepares the dataset here, checks there is 3 GB to spare, and uploads it. Training runs detached, so it survives closing the app, opening another folder or a lost connection; the app reattaches when the project opens. When the run ends, the best model comes back and the run's files are removed from the machine. A run that ends while its folder isn't open waits on the machine until you open that folder again. Another folder can't be opened until a run has finished starting.
 
@@ -108,4 +102,4 @@ npm run test:e2e
 
 `e2e/model-size.spec.ts` trains a small network for real on the CPU with every advanced setting changed, exports it, duplicates and compares runs, and times a tile on the stand-in GPU machine through the real engine.
 
-The engine's tests are in `../tests/unit/test_studio_*.py`, `../tests/unit/test_model_size.py` and `../tests/unit/test_model_choices.py`; the last trains a step and exports every network the page offers, and marks all but a sample of them `slow`, which CI leaves out. and [`../tests/fixtures/seamtag`](../tests/fixtures/seamtag/README.md) holds label files written by labelme 7.9.1 and LabelImg, with the masks and readings they're compared with, and says how they were made.
+The engine's tests are in `../tests/unit/test_studio_*.py`, `../tests/unit/test_model_size.py` and `../tests/unit/test_model_choices.py`; the last trains a step and exports every network the page offers, and marks all but a sample of them `slow`, which CI leaves out. [`../tests/fixtures/seamtag`](../tests/fixtures/seamtag/README.md) holds label files written by labelme 7.9.1 and LabelImg, with the masks and readings they're compared with, and says how they were made.

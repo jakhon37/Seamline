@@ -22,8 +22,7 @@ This project and everyone participating in it is governed by our [Code of Conduc
 
 ### Prerequisites
 
-- Python 3.10 or higher
-- CUDA 12.1+ (for GPU support)
+- Python 3.10 or higher, Node.js 22 or later and uv: see the [install guide](INSTALL.md)
 - Git
 - Basic understanding of PyTorch and deep learning
 
@@ -44,41 +43,23 @@ We welcome contributions in several areas:
 
 ```bash
 # Fork the repository on GitHub, then clone your fork
-git clone https://github.com/YOUR_USERNAME/mySegLib.git
+git clone https://github.com/YOUR_USERNAME/Seamline.git
 cd Seamline
 
 # Add upstream remote
 git remote add upstream https://github.com/jakhon37/Seamline.git
 ```
 
-### 2. Create Virtual Environment
+### 2. Set Up the Environment
+
+Make `.venv` and build the app as the [install guide](INSTALL.md) says, which picks the PyTorch build for your GPU. Then add the development tools and activate the environment:
 
 ```bash
-# Create and activate virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Upgrade pip
-pip install --upgrade pip setuptools wheel
+uv pip install -r requirements-dev.txt
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 ```
 
-### 3. Install Dependencies
-
-```bash
-# Install PyTorch with CUDA support (adjust for your CUDA version)
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
-
-# Install project dependencies
-pip install -r requirements.txt
-
-# Install development dependencies
-pip install -r requirements-dev.txt
-
-# Install package in editable mode
-pip install -e .
-```
-
-### 4. Install Pre-commit Hooks
+### 3. Install Pre-commit Hooks
 
 ```bash
 pre-commit install
@@ -86,7 +67,7 @@ pre-commit install
 
 This will automatically run code formatting and linting checks before each commit.
 
-### 5. Verify Setup
+### 4. Verify Setup
 
 ```bash
 # Run tests to verify everything is working
@@ -94,6 +75,9 @@ pytest tests/ -v
 
 # Check code style
 make lint
+
+# Run the app's end-to-end tests: the app's guide says what each covers
+cd app && npm run test:e2e
 ```
 
 ## Development Workflow
@@ -410,7 +394,7 @@ Use the feature request template and include:
 
 ### Getting Help
 
-- **Documentation**: Check [docs/](docs/) first
+- **Documentation**: Check [docs/](./) first
 - **Issues**: Search existing issues before creating new ones
 
 ### Recognition

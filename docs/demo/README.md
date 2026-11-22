@@ -1,8 +1,38 @@
-# Reproducing the demo numbers
+# Results on real images
 
-The figures, screenshots and demo in the main README come from one project and two real runs through the app, made on 2026-11-20. The figures are in [`results.json`](results.json). The fix history below comes from the runs of 2026-11-06, in [`results-2026-11-06.json`](results-2026-11-06.json).
+The figures on this page, and the screenshots and demo in the main README, come from one project and two real runs through the app, made on 2026-11-20. The figures are in [`results.json`](results.json). The fix history at the end comes from the runs of 2026-11-06, in [`results-2026-11-06.json`](results-2026-11-06.json).
 
-## Data
+## What was tested
+
+Circuit-board photos from the [VisA dataset](https://github.com/amazon-science/spot-diff): four defect types, 64 labelled images, and 27 held back that the model never saw. The model is a Unet with a ResNet-34 encoder, the Balanced size, trained through the app on a GTX 1080 Ti. It's one run on a small set, so read the numbers as rough.
+
+## Results
+
+On the 27 unseen images, all with defects, the model found 22 of the 55 defects (at least half of each covered), proposed nothing on 9 images, and reached a mean IoU of 0.42 across the four defect types. That IoU is over all pixels of each type. The app's Best IoU of 0.664 reads higher because it's on validation tiles and averages background in.
+
+**Mostly right when it proposes.** Of the 25 proposals, 20 are on a defect and the right type, 1 is on a defect but the wrong type, and 4 are mostly off any defect. On 30 defect-free boards, it proposed nothing.
+
+![The same unseen images with true labels and the model's proposals](../media/examples.webp)
+
+These examples are the model's best for each defect type, so they're better than average, and it found no bent pin at all. The averages are in the chart:
+
+![Bar charts: IoU by defect type, and IoU by certainty quarter](../media/results.webp)
+
+The right-hand chart is the case for reviewing least certain first: low scores go with weak shapes (Spearman 0.75 between score and IoU). It's from only 25 shapes, so treat it as a direction rather than a measurement.
+
+**What it still gets wrong.** With 64 labelled images, the model misses more than half of the defects and never finds a bent pin. A defect the model misses has no shape to review, so you still need to look at the images. How much labelling time this saves hasn't been measured.
+
+## How the numbers are counted
+
+- A true defect counts as found when shapes of its class cover at least half of it.
+- Per-class IoU is over all pixels of that class on the 27 images, without background. The app's **Best IoU** is different: it's on the validation tiles, and averages background in.
+- A proposal counts as on a defect when at least half of it lies on a true defect of any type, and of the right type when at least half of it lies on its own type.
+- Certainty quarters split the proposals by score, the last taking any left over.
+- 27 images and 25 predicted shapes is a small sample, so small differences mean little.
+
+## Reproducing them
+
+### Data
 
 `pcb1` from [VisA](https://github.com/amazon-science/spot-diff) (CC BY 4.0): photos of a circuit board with four defect types. The 91 images with a single defect type are used, split per type: 64 labelled from their true masks and 27 held back.
 
@@ -10,7 +40,7 @@ The figures, screenshots and demo in the main README come from one project and t
 python docs/demo/build_project.py VisA/pcb1 sensor-inspection truth
 ```
 
-## Run
+### Run
 
 Open `sensor-inspection` in Seamline and train with these settings, on a GPU machine over SSH. These runs used a GTX 1080 Ti.
 
@@ -37,15 +67,7 @@ Last, run the model on 30 defect-free boards it never saw, where every shape is 
 python docs/demo/clean_boards.py VisA/pcb1 sensor-inspection clean clean.json
 ```
 
-## Reading the numbers
-
-- A true defect counts as found when shapes of its class cover at least half of it.
-- Per-class IoU is over all pixels of that class on the 27 images, without background. The app's **Best IoU** is different: it's on the validation tiles, and averages background in.
-- A proposal counts as on a defect when at least half of it lies on a true defect of any type, and of the right type when at least half of it lies on its own type.
-- Certainty quarters split the proposals by score, the last taking any left over.
-- 27 images and 25 predicted shapes is a small sample, so small differences mean little.
-
-## The README's images
+### The README's images
 
 The charts are drawn from `results.json`, and the screenshots and demo are the real app on the project, driven by scripts. The scripts take a project, an app profile of their own so nothing reaches yours, and a display such as Xvfb. The demo is filmed from that display with ffmpeg, and the cursor and keys are drawn by the page as the script moves and presses them.
 

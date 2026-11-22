@@ -30,16 +30,11 @@ CI also runs the full pipeline on synthetic data: train, resume, evaluate, infer
 
 ### 1. Install
 
-You need Python 3.10+ and PyTorch 2.3+.
+You need Python 3.10+ and PyTorch 2.3+. Make the environment as the [install guide](INSTALL.md) says, which picks the PyTorch build for your GPU, then activate it, so that `python` in the commands below is the environment's:
 
 ```bash
-git clone https://github.com/jakhon37/Seamline.git
-cd Seamline
-python -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 ```
-
-Or run the automated setup with `bash scripts/setup_dev.sh`.
 
 ### 2. Prepare your dataset
 
@@ -133,6 +128,7 @@ make ci            # Run the full local pipeline
 
 ## Documentation
 
+- [Installing](INSTALL.md)
 - [Quick Start](QUICKSTART_OPTIMIZED.md)
 - [Optimization Features](OPTIMIZATION_FEATURES.md)
 - [Multi-GPU Training](MULTI_GPU_TRAINING.md)

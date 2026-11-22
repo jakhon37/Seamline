@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Seamline, a desktop app for labelling and training, in `app/` and `engine/`
+- An install guide, `docs/INSTALL.md`: installing with uv and the PyTorch build that fits the
+  computer, with measured sizes, setting up a GPU machine for training over SSH, disk space, and
+  troubleshooting
 - `--events` option in `scripts/train.py` for per-epoch progress
 - Images in subfolders, named by their path in the folder, such as `line2/img_007.jpg`, and JFIF,
   GIF, WebP and AVIF images, as Seamtag lists them; label files Seamline writes in a subfolder give
@@ -100,6 +103,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Saving the class list merges it with `.myseg/project.json` as it is then, which Seamtag writes
   too: classes another app added, recoloured or deleted there since Seamline read it stay that way,
   unless Seamline changed the same class, and the file's other keys are kept
+- The README is about half as long: how the app is built is in `docs/ARCHITECTURE.md`, which now
+  describes the app, with the library's architecture in `docs/LIBRARY_ARCHITECTURE.md`; the results'
+  detail is in `docs/demo/README.md`, and the plans are in `docs/ROADMAP.md`
 
 ### Fixed
 - The Train page no longer offers DenseNet with DeepLabV3, DeepLabV3+ or PAN, which smp can't
