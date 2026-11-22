@@ -46,15 +46,6 @@ indent_size = 4
 indent_style = space
 indent_size = 4
 
-# Docker files
-[Dockerfile*]
-indent_style = space
-indent_size = 2
-
-[docker-compose*.yml]
-indent_style = space
-indent_size = 2
-
 # CSV files
 [*.csv]
 trim_trailing_whitespace = false

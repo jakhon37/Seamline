@@ -1,8 +1,8 @@
 # mySegLib - Core Dependencies
 # =======================================
 
-# PyTorch (install separately based on CUDA version)
-# pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+# PyTorch comes in a build for each kind of GPU: docs/INSTALL.md says which to install,
+# with uv pip install -r requirements.txt --torch-backend=auto
 torch>=2.3.0
 torchvision>=0.18.0
 
