@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-22
+
 ### Added
 - Seamline, a desktop app for labelling and training, in `app/` and `engine/`
 - An install guide, `docs/INSTALL.md`: installing with uv and the PyTorch build that fits the
