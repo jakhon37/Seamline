@@ -1,10 +1,11 @@
 import { Brain, Download, ExternalLink, FolderOpen, PenTool, Search } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { isLabelled } from '../../shared/labels'
+import EngineSetup from './Engine'
 import Labeler, { type LabelerHandle } from './Labeler'
 import Logo from './Logo'
 import Trainer from './Trainer'
-import type { ImageItem, LabelClass, OpenProject } from './types'
+import type { EngineStatus, ImageItem, LabelClass, OpenProject } from './types'
 
 type Mode = 'label' | 'train'
 type ClassChange = (classes: LabelClass[]) => LabelClass[]
@@ -19,6 +20,9 @@ export default function App() {
   // Seamtag is starting: Seamline waits a moment to see it doesn't close at once, and starts no other meanwhile
   const [starting, setStarting] = useState(false)
   const labeler = useRef<LabelerHandle>(null)
+  // The engine's Python environment. An installed Seamline makes its own on first run, so it asks then
+  const [engine, setEngine] = useState<EngineStatus | null>(null)
+  const [engineOpen, setEngineOpen] = useState(false)
   // The class list the window shows: as the main process last read or wrote it, which it merges the
   // next change with. Changes and reads go one at a time, so each starts from where the last left it.
   const classes = useRef<{ root: string; list: LabelClass[] } | null>(null)
@@ -42,6 +46,13 @@ export default function App() {
       showError(e.message)
     }
   }
+
+  useEffect(() => {
+    window.api.engineStatus().then((status) => {
+      setEngine(status)
+      if (status.managed && (!status.ready || status.outdated)) setEngineOpen(true)
+    }).catch(() => {})
+  }, [])
 
   useEffect(() => {
     const initial = new URLSearchParams(location.search).get('project')
@@ -186,9 +197,14 @@ export default function App() {
           <div className="page" hidden={mode !== 'train'}>
             <Trainer key={data.root} data={data} active={mode === 'train'} onError={showError}
               onTraining={setTraining} changeClasses={(change) => changeClasses(data.root, change)}
-              onSeamtag={() => openSeamtag(false)} seamtagStarting={starting} />
+              onSeamtag={() => openSeamtag(false)} seamtagStarting={starting}
+              engine={engine} onEngine={() => setEngineOpen(true)} />
           </div>
         </>
+      )}
+      {engineOpen && engine && (
+        <EngineSetup status={engine} onClose={() => setEngineOpen(false)}
+          onDone={() => window.api.engineStatus().then(setEngine).catch(() => {})} />
       )}
       {seamtag && (
         <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && setSeamtag(null)}>

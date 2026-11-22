@@ -6,7 +6,8 @@ import {
   architecture, ARCHITECTURES, AUGMENTATIONS, DECODER_WIDTHS, ENCODERS, fitArchitecture, fromRun, LOSSES, PRESETS, problem,
   SCHEDULERS, type Size, sizeOf, takes, type TrainOptions, weightsOf
 } from '../../shared/models'
-import { type Estimate, type Exported, type LabelClass, type OpenProject, PALETTE, type Run, type TrainEvent } from './types'
+import { engineSummary } from './Engine'
+import { type EngineStatus, type Estimate, type Exported, type LabelClass, type OpenProject, PALETTE, type Run, type TrainEvent } from './types'
 
 const DEFAULTS: TrainOptions = {
   ...PRESETS.balanced.options,
@@ -30,7 +31,12 @@ type Props = {
   onSeamtag: () => void
   /** Seamtag is starting, so it isn't started again */
   seamtagStarting: boolean
+  /** The engine's Python environment, and a way to set it up */
+  engine: EngineStatus | null
+  onEngine: () => void
 }
+// Training over SSH sends the dataset with rsync, which Windows doesn't have
+const NO_SSH = window.api.platform === 'win32'
 type Series = { name: string; color: string; values: number[] }
 
 const leftOut = (counts: Record<string, number>) =>
@@ -169,7 +175,7 @@ function useEstimate(request: Record<string, unknown> | null, timing: boolean, a
   return { shown, current: !!shown && shown.key === key }
 }
 
-export default function Trainer({ data, active, onError, onTraining, changeClasses, onSeamtag, seamtagStarting }: Props) {
+export default function Trainer({ data, active, onError, onTraining, changeClasses, onSeamtag, seamtagStarting, engine, onEngine }: Props) {
   const [options, setOptions] = useState<TrainOptions>(DEFAULTS)
   // Chosen, or Custom once an advanced setting is changed by hand
   const [size, setSize] = useState<Size>('balanced')
@@ -188,7 +194,7 @@ export default function Trainer({ data, active, onError, onTraining, changeClass
   const stored = (key: string, fallback: string) => {
     try { return localStorage.getItem(key) ?? fallback } catch { return fallback }
   }
-  const [where, setWhere] = useState(stored('trainWhere', 'local'))
+  const [where, setWhere] = useState(NO_SSH ? 'local' : stored('trainWhere', 'local'))
   const [host, setHost] = useState(stored('trainHost', ''))
   const [dir, setDir] = useState(stored('trainDir', 'seamline'))
   const [remote, setRemote] = useState<string>('')
@@ -328,6 +334,8 @@ export default function Trainer({ data, active, onError, onTraining, changeClass
 
   // The model the form describes, as it would train here or on the GPU machine. Settings that can't train aren't estimated.
   const blocked = problem(options)
+  // The estimate here needs the engine here; timing a tile on the GPU machine runs there
+  const engineReady = !engine || engine.ready
   const request = active && !blocked
     ? {
         architecture: options.architecture, encoder: options.encoder, encoder_depth: options.encoder_depth,
@@ -335,7 +343,7 @@ export default function Trainer({ data, active, onError, onTraining, changeClass
         image_size: options.image_size, batch_size: options.batch_size, num_classes: data.project.classes.length + 1
       }
     : null
-  const { shown, current: fresh } = useEstimate(request, where === 'local', running)
+  const { shown, current: fresh } = useEstimate(engineReady ? request : null, where === 'local', running)
   const estimate = shown?.estimate
   const thereKey = request ? JSON.stringify({ ...request, host, dir }) : null
   const timedThere = there?.key === thereKey ? there : null
@@ -392,6 +400,12 @@ export default function Trainer({ data, active, onError, onTraining, changeClass
     <div className="trainer">
       <aside className="panel left wide">
         <h3>New training run</h3>
+        {!engineReady && (
+          <div className="engine-missing" data-testid="engine-missing">
+            <p className="warn">The engine isn't set up, so training, pre-labelling and export can't run yet.</p>
+            <button className="primary" onClick={onEngine}>Set up the engine…</button>
+          </div>
+        )}
         <div className="field">
           <span id="model-size">Model size</span>
           <div className="seg small sizes" role="radiogroup" aria-labelledby="model-size">
@@ -527,9 +541,16 @@ export default function Trainer({ data, active, onError, onTraining, changeClass
         <Field label="Run on">
           <select value={where} onChange={(e) => setWhere(e.target.value)}>
             <option value="local">This computer</option>
-            <option value="ssh">GPU machine over SSH</option>
+            <option value="ssh" disabled={NO_SSH}>GPU machine over SSH</option>
           </select>
         </Field>
+        {NO_SSH && <p className="muted">Training on a GPU machine over SSH needs rsync, which Windows doesn't have.</p>}
+        {engine?.managed && engine.info && (
+          <p className="muted engine-line" data-testid="engine-line">
+            Engine: {engineSummary(engine.info)}
+            <button onClick={onEngine}>Set up again…</button>
+          </p>
+        )}
         {where === 'ssh' && (
           <>
             <Field label="SSH host"><input placeholder="user@host" value={host} onChange={(e) => setHost(e.target.value)} /></Field>
