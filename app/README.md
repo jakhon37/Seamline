@@ -6,6 +6,8 @@ Label images and train segmentation models in one desktop app, built on [mySegLi
 
 The [install guide](../docs/INSTALL.md) sets up the engine's Python environment in `.venv` at the repo root and builds the app. After that, `npm start` here starts it. Set `MYSEG_PYTHON` to use another interpreter that has the requirements: with Pillow older than 12, 16-bit grey PNGs train as white and AVIF images can't be read.
 
+An installed Seamline sets up its own engine on first run, in its data folder, with the uv it carries and the PyTorch build that fits the computer (`src/main/engine.ts`). Without a `.venv`, Seamline run from source offers the same. `npm run dist` builds the installer for this computer into `release/`, and `seamline --setup-engine cpu` followed by `seamline --check-engine` sets up and tries an installed app's engine from the command line, as the release workflow does. They open no window, but on Linux still need a display, as Electron does: run them under `xvfb-run` where there's none. `node scripts/constraints.mjs` writes `constraints.txt` again, the versions the engine is set up with, after a change to `requirements.txt`.
+
 Open any folder of images. Seamline lists the JPEG, JFIF, PNG, BMP, GIF, TIFF, WebP and AVIF images in it and its subfolders, leaving out files and folders whose names start with a dot, such as `.myseg`, and folders linked from elsewhere. BMP images are shown whole rather than from a tile pyramid, since the libvips in sharp can't read them. Labels are saved beside each image as LabelMe JSON, so labelme and [Seamtag](https://github.com/jakhon37/Seamtag) open the same folder. Saving keeps the rest of the file as it was, including the image labelme keeps in it. A label file that can't be read is marked red and never written over. Project settings, the tile cache, the prepared dataset and runs go in `.myseg/` inside that folder.
 
 ## Keys
@@ -80,7 +82,7 @@ A run keeps these settings in its `config.yaml`, so pre-labelling and **Export f
 
 ## Train on a GPU machine
 
-On the Train page, set **Run on** to **GPU machine over SSH**, then enter `user@host` and a remote folder. You need key-based SSH, rsync on both ends, and a GPU PyTorch for the machine's `python3`: the [install guide](../docs/INSTALL.md#set-up-a-gpu-machine-for-training-over-ssh) says how to set one up.
+On the Train page, set **Run on** to **GPU machine over SSH**, then enter `user@host` and a remote folder. It isn't offered on Windows, which has no rsync. You need key-based SSH, rsync on both ends, and a GPU PyTorch for the machine's `python3`: the [install guide](../docs/INSTALL.md#set-up-a-gpu-machine-for-training-over-ssh) says how to set one up.
 
 The app prepares the dataset here, checks there is 3 GB to spare, and uploads it. Training runs detached, so it survives closing the app, opening another folder or a lost connection; the app reattaches when the project opens. When the run ends, the best model comes back and the run's files are removed from the machine. A run that ends while its folder isn't open waits on the machine until you open that folder again. Another folder can't be opened until a run has finished starting.
 

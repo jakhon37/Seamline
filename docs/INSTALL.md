@@ -1,21 +1,54 @@
 # Installing Seamline
 
-Seamline runs from this repository. It has two parts: the app, an Electron program you build with Node.js, and the engine, a Python program that prepares datasets, trains and pre-labels with PyTorch. Most of the download is PyTorch, which comes in a different build for each kind of GPU, so the one step that needs a choice is which build to install.
+Seamline has two parts: the app, an Electron program, and the engine, a Python program that prepares datasets, trains and pre-labels with PyTorch. Most of the download is PyTorch, which comes in a different build for each kind of GPU, so the one step that needs a choice is which build to install.
 
-Seamline is developed and tested on Ubuntu 24.04, with Python 3.12 and Node.js 22. The same steps should work on other Linux systems and on Macs with Apple silicon, though Seamline hasn't been tested there. It doesn't run from source on Windows: see [Other systems](#other-systems).
+The installers carry the app and set up the engine on first run. From source, you set up both yourself. Seamline is developed on Ubuntu 24.04 with Python 3.12 and Node.js 22, and each installer is checked on its own system as it's built: it starts, sets up its engine with PyTorch's CPU build, and runs it.
 
-- [What you need](#what-you-need)
-- [Install](#install)
+- [Install a release](#install-a-release)
+- [The engine, on first run](#the-engine-on-first-run)
+- [What you need from source](#what-you-need-from-source)
+- [Install from source](#install-from-source)
 - [Choose the PyTorch build](#choose-the-pytorch-build)
 - [Check that it works](#check-that-it-works)
-- [Other systems](#other-systems)
+- [Macs and Windows](#macs-and-windows)
 - [Seamtag](#seamtag)
 - [Set up a GPU machine for training over SSH](#set-up-a-gpu-machine-for-training-over-ssh)
 - [Disk space](#disk-space)
 - [Update or remove](#update-or-remove)
 - [Troubleshooting](#troubleshooting)
 
-## What you need
+## Install a release
+
+Download the installer for your system from [Releases](https://github.com/jakhon37/Seamline/releases/latest).
+
+| System | File | Notes |
+|---|---|---|
+| Windows 10 and 11 | `Seamline-…-win-x64.exe` | Not code-signed: on the SmartScreen warning, choose More info, then Run anyway. With Windows 11's Smart App Control on, Windows doesn't run unsigned installers at all. |
+| macOS on Apple silicon | `Seamline-…-mac-arm64.dmg` | Not notarised: macOS blocks it the first time. Open System Settings, then Privacy & Security, and choose Open Anyway, or run `xattr -dr com.apple.quarantine /Applications/Seamline.app`. |
+| Linux | `Seamline-…-linux-amd64.deb` | `sudo apt install ./Seamline-*.deb` adds a `seamline` command, and on Ubuntu 24.04 and later the AppArmor profile Chromium's sandbox needs. |
+| Linux, any distribution | `Seamline-…-linux-x86_64.AppImage` | `chmod +x` it and run it. From Ubuntu 24.04 it needs `--no-sandbox`, as an AppImage can't add that profile, and `sudo apt install libfuse2t64` (`libfuse2` on 22.04). |
+
+There's no installer for Intel Macs: PyTorch's last build for them was 2.2.2, from March 2024, and Seamline needs 2.3 or later.
+
+## The engine, on first run
+
+When it first starts, Seamline offers to set up its engine: Python 3.12, PyTorch and the packages in `requirements.txt`, downloaded once into its own folder with [uv](https://docs.astral.sh/uv/), which comes with the app. Labelling works without it, and **Later** leaves it for the Train page, which offers it again.
+
+It looks for an NVIDIA GPU and suggests the build that fits:
+
+| Choice | For | Download, then on disk |
+|---|---|---|
+| NVIDIA GPU | The RTX 20 and GTX 16 series and newer: the newest CUDA build the driver runs | 3.2 GB, 6.1 GB on Linux; 2.3 GB, 3.6 GB on Windows |
+| Older NVIDIA GPU | The GTX 10 and 900 series, Titan V, Tesla P100 and V100: PyTorch 2.14 with CUDA 12.6 | 3.9 GB, 7.2 GB on Linux; 2.8 GB, 4.7 GB on Windows |
+| No NVIDIA GPU | Training on the CPU, or on a GPU machine over SSH | 0.4 GB, 1.4 GB on Linux; 0.3 GB, 1.0 GB on Windows and macOS |
+
+Python adds about 30 MB. A Mac has one choice, PyTorch's build for Apple silicon, and trains on its CPU. Pre-labelling and export run on your computer with whichever build you choose, so even if you train only on a GPU machine, the engine is set up here too. Each release sets the engine up with the versions it was tested with, which `constraints.txt` lists.
+
+On Windows, PyTorch needs Microsoft's Visual C++ Redistributable, which most computers have; when one doesn't, Seamline says so and links to Microsoft's download.
+
+The engine goes in a folder of its own: `~/.local/share/Seamline/engine` on Linux, `~/Library/Application Support/Seamline/engine` on macOS, and `%LOCALAPPDATA%\Seamline\engine` on Windows. Once it works, Seamline empties the download cache there. When it's ready, the Train page names the build, with **Set up again…** to choose another: the new engine replaces the old one only once it works. After an update of Seamline that needs other packages, the app offers to update the engine, keeping PyTorch as it is.
+
+## What you need from source
 
 - **Git**
 - **Node.js 22 or later**, from [nodejs.org](https://nodejs.org/en/download)
@@ -27,10 +60,10 @@ Seamline is developed and tested on Ubuntu 24.04, with Python 3.12 and Node.js 2
   ```
 
   The second line puts it on the path in the shell you're in; new shells find it anyway. `uv self update` updates an older uv, and [uv's installation page](https://docs.astral.sh/uv/getting-started/installation/) has other ways to install it, such as Homebrew.
-- **1.5 to 8 GB of disk**, most of it for PyTorch: about 2 GB with its CPU build, and 7 to 8 GB with its CUDA build. See [Disk space](#disk-space).
+- **1.5 to 8 GB of disk**, most of it for PyTorch: about 2 GB with its CPU build, and 6.5 to 7.6 GB with its CUDA build. See [Disk space](#disk-space).
 - **An NVIDIA GPU to train at a useful speed**, in this computer or in a Linux machine you can reach over SSH. Labelling, reviewing and pre-labelling work without one, and small models train on the CPU.
 
-## Install
+## Install from source
 
 On an NVIDIA GPU from before the RTX 20 and GTX 16 series, write `--torch-backend=cu126` in place of `auto` (see [the next section](#choose-the-pytorch-build)).
 
@@ -46,7 +79,7 @@ npm start
 ```
 
 - `uv venv` makes the engine's Python environment in `.venv`, at the top of the repository, where the app looks for it.
-- `uv pip install` installs the engine's packages, with the PyTorch build that `--torch-backend` names, or that `auto` picks for this computer.
+- `uv pip install` installs the engine's packages, with the PyTorch build that `--torch-backend` names, or that `auto` picks for this computer. Add `-c constraints.txt` for the versions the installers use; without it, you get the newest.
 - `npm ci` installs the app's packages as `package-lock.json` lists them, Electron among them: about 0.4 GB.
 - `npm run build` builds the app and `npm start` starts it. Until you update, `npm start` in `app/` is all it takes.
 
@@ -60,16 +93,16 @@ With `--torch-backend=auto`, uv looks at the computer's GPU driver. With an NVID
 
 | Your computer | `--torch-backend=` | Download, then on disk |
 |---|---|---|
-| Linux, no NVIDIA GPU | `cpu` | 0.5 GB, 1.7 GB |
-| Linux, NVIDIA RTX 20 or GTX 16 series or newer | `cu132` | 3.3 GB, 6.4 GB |
-| Linux, older NVIDIA GPU | `cu126` | 3.9 GB, 7.4 GB |
+| Linux, no NVIDIA GPU | `cpu` | 0.4 GB, 1.4 GB |
+| Linux, NVIDIA RTX 20 or GTX 16 series or newer | `cu132` | 3.2 GB, 6.1 GB |
+| Linux, older NVIDIA GPU | `cu126` | 3.9 GB, 7.2 GB |
 | Mac with Apple silicon | `cpu` | 0.3 GB, 1.0 GB |
 
 `cpu` and `cu132` install PyTorch 2.15, the second with CUDA 13.2. The sizes are for all the engine's packages, with Python 3.12, measured from the package files on 22 November 2026: PyTorch and the CUDA libraries it brings are most of it.
 
 **Older NVIDIA GPUs need PyTorch 2.14.** PyTorch 2.15's CUDA builds run on Turing GPUs and newer (compute capability 7.5). For the GTX 10 and 900 series, the Titan V, and the Tesla P100 and V100, `cu126` installs PyTorch 2.14 with CUDA 12.6, the last release with builds for them. `auto` goes by the driver, not the GPU, so with a recent driver it picks a build that can't use an older card, though `torch.cuda.is_available()` still says `True`.
 
-**Plain pip downloads the CUDA build.** On Linux, `pip install -r requirements.txt` takes PyTorch from PyPI, whose Linux build carries CUDA: 3.3 GB, with a GPU or without. With pip, add the index of the build you want, such as the CPU build's:
+**Plain pip downloads the CUDA build.** On Linux, `pip install -r requirements.txt` takes PyTorch from PyPI, whose Linux build carries CUDA: 3.2 GB, with a GPU or without. With pip, add the index of the build you want, such as the CPU build's:
 
 ```bash
 pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
@@ -97,11 +130,11 @@ Then ask the engine what a small model costs, as the Train page does:
 
 Within about ten seconds it prints one line of JSON: the network's 14,328,354 parameters, its GFLOPs and training memory, and the time one tile took, with `"device"` set to `"CPU"` or the GPU's name.
 
-## Other systems
+## Macs and Windows
 
-**Macs** need Apple silicon: PyTorch's last build for Intel Macs was 2.2.2, from March 2024, and Seamline needs 2.3 or later. The engine trains on NVIDIA GPUs through CUDA, so on a Mac it trains on the CPU. Training on a GPU machine over SSH fails from a Mac: SSH can't make the socket the app asks for to share one connection between commands, as its path is longer than macOS allows.
+**Macs** need Apple silicon, as above. The engine trains on NVIDIA GPUs through CUDA, so on a Mac it trains on the CPU. Training on a GPU machine over SSH from a Mac hasn't been tried yet.
 
-**Windows** isn't supported from source. The app looks for the engine's Python at `.venv/bin/python`, where uv puts it at `.venv\Scripts\python.exe`; it stops runs by signalling their Unix process group; and it trains over SSH with `rsync`, `du` and shared connections, none of which Windows has.
+**On Windows**, install a release: Seamline hasn't been run from source there. Training on a GPU machine over SSH isn't available on Windows, as it sends the dataset with `rsync`, which Windows doesn't have.
 
 ## Seamtag
 
@@ -115,7 +148,7 @@ On the Train page, **Run on: GPU machine over SSH** trains on another computer w
 - **SSH with a key.** The app runs `ssh` in batch mode, so it can't ask for a password or a key's passphrase: a key with a passphrase has to be loaded in `ssh-agent`. A host from your `~/.ssh/config` works in place of `user@host`.
 - **rsync**, on the machine and on your computer.
 - **A `python3` with PyTorch 2.3 or later, built for its GPU, as commands run over SSH find it.** That may not be the `python3` you get when you log in: see below.
-- **Python 3.10 to 3.12**, with its `venv` module. The engine's environment there keeps numpy below 2, for older PyTorch builds, and numpy 1 has no builds for newer Pythons.
+- **Python 3.10 or later**, with its `venv` module. With PyTorch older than 2.3, which needs numpy below 2, Python 3.12 at most: numpy 1 has no builds for newer Pythons.
 - **Access to PyPI**, as the first run installs the engine's other packages.
 - **Room on its disk** for the prepared dataset, plus 3 GB for the environment, checkpoints and logs. The app checks before each run.
 - **No other program on its GPUs.** The app won't start a run while any process is using one of the machine's GPUs.
@@ -128,7 +161,7 @@ Check from your computer:
 ssh user@host "python3 -c 'import sys, torch; print(sys.version.split()[0], torch.__version__, torch.cuda.is_available())'"
 ```
 
-If it prints a Python from 3.10 to 3.12, a PyTorch from 2.3 on, and `True`, the machine is ready. If not, give PyTorch an environment of its own on the machine, with uv and a Python of uv's own:
+If it prints a Python from 3.10 on, a PyTorch from 2.3 on, and `True`, the machine is ready. If not, give PyTorch an environment of its own on the machine, with uv and a Python of uv's own:
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -150,22 +183,24 @@ It becomes the `python3` of your account on that machine. Run the check again.
 In the remote folder, `seamline` in your home folder unless you give another, the first run makes:
 
 - `code/`: the engine as it is on your computer, sent again before each run.
-- `venv/`: the engine's environment, made by [`engine/remote_setup.py`](../engine/remote_setup.py). It links the machine's PyTorch rather than copying it, and installs the rest: about 0.5 GB on disk, or 1.6 GB with PyTorch 2.11 or later, part of whose CUDA libraries it installs again.
+- `venv/`: the engine's environment, made by [`engine/remote_setup.py`](../engine/remote_setup.py). It links the machine's PyTorch and the CUDA libraries that came with it rather than copying them, and installs the rest: about 0.2 GB to download and 0.5 GB on disk.
 - `projects/`: each run's dataset and results. When a run ends, its best model comes back and its files there are removed.
 
 ## Disk space
 
 - **The repository:** 12 MB, where you clone it.
 - **The app's packages:** 0.4 GB, in `app/node_modules`.
-- **The engine's environment:** 1.0 to 7.4 GB in `.venv`, by the PyTorch build: see [the table](#choose-the-pytorch-build).
+- **The engine's environment:** 1.0 to 7.2 GB, by the PyTorch build: in `.venv` from source, in [a folder of its own](#the-engine-on-first-run) when installed.
 - **uv's cache:** about the environment's size, in the folder `uv cache dir` prints. When it's on the same disk as `.venv`, uv links files from it rather than copying them, so it adds little. `uv cache clean` empties it.
 - **ImageNet weights:** 14 to 103 MB for each encoder, in `~/.cache/huggingface/hub`, downloaded the first time a run starts from them: 47, 87 and 103 MB for Fast, Balanced and Accurate.
 - **Each project:** its `.myseg/` folder holds the prepared dataset, which can be many times the images' size (311 MB for the demo's 24 MB of JPEG photos), each run's best model (56 MB for Fast, 95 MB for Balanced), and a tile cache for large images.
-- **A GPU machine:** the environment, 0.5 to 1.6 GB, and each run's dataset while it trains, in the remote folder; outside it, PyTorch if you installed it as above, and the ImageNet weights.
+- **A GPU machine:** the environment, about 0.5 GB, and each run's dataset while it trains, in the remote folder; outside it, PyTorch if you installed it as above, and the ImageNet weights.
 
 ## Update or remove
 
-To update, from the top of the repository, giving the same `--torch-backend` as when you installed:
+An installed Seamline updates by installing the new release over it, and uninstalls as any app on its system does. Its engine stays in its own folder, which you can delete: [The engine, on first run](#the-engine-on-first-run) says where.
+
+From source, update from the top of the repository, giving the same `--torch-backend` as when you installed:
 
 ```bash
 git pull
@@ -175,7 +210,7 @@ npm ci
 npm run build
 ```
 
-To remove Seamline, delete the repository's folder: that takes the app, `.venv` and `app/node_modules` with it. Each project keeps its runs and its settings in its `.myseg/` folder, which you can delete too. The rest is outside the repository:
+To remove Seamline run from source, delete the repository's folder: that takes the app, `.venv` and `app/node_modules` with it. Each project keeps its runs and its settings in its `.myseg/` folder, which you can delete too. The rest is outside the repository:
 
 - the app's own settings: `~/.config/Seamline` on Linux, `~/Library/Application Support/Seamline` on macOS
 - uv's cache, which `uv cache clean` empties, and the Pythons uv fetched, in the folder `uv python dir` prints
@@ -210,4 +245,10 @@ sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
 
 **Setting up the environment fails with "ensurepip is not available".** The machine's `python3` lacks Python's `venv` module: on Debian and Ubuntu, `sudo apt install python3-venv`. A Python that uv fetched, as above, has it.
 
-**Setting up the environment fails while installing numpy.** The machine's `python3` is 3.13 or later, for which numpy 1 has no builds. Use Python 3.12, as above.
+**Setting up the environment fails while installing numpy.** The machine's PyTorch is older than 2.3 and its `python3` is 3.13 or later, for which numpy 1 has no builds. Use Python 3.12 and PyTorch 2.3 or later, as above.
+
+**The engine's setup stops with a network error.** It downloads from PyPI, PyTorch's index and GitHub, where uv's Pythons are. Behind a proxy, set `HTTPS_PROXY` before starting Seamline; where a network inspects encrypted traffic, also set `UV_NATIVE_TLS=1`. When you try again, the packages uv finished downloading aren't downloaded again.
+
+**The engine's check fails on Windows with "DLL load failed".** Install Microsoft's Visual C++ Redistributable from https://aka.ms/vs/17/release/vc_redist.x64.exe, then set the engine up again.
+
+**macOS says Seamline "can't be opened because Apple cannot check it".** It isn't notarised. Open System Settings, then Privacy & Security, and choose Open Anyway, or run `xattr -dr com.apple.quarantine /Applications/Seamline.app`.

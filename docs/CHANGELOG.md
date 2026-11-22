@@ -12,6 +12,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - An install guide, `docs/INSTALL.md`: installing with uv and the PyTorch build that fits the
   computer, with measured sizes, setting up a GPU machine for training over SSH, disk space, and
   troubleshooting
+- Installers for Windows, macOS on Apple silicon and Linux (`.deb` and AppImage), built by
+  `.github/workflows/release.yml`, which checks that each starts, sets up its engine and runs it
+- Setting up the engine on first run: Python, PyTorch in the build that fits the computer (CUDA,
+  CUDA for older NVIDIA GPUs, or CPU) and the engine's packages, downloaded with the uv the app
+  carries into its own folder; it says the sizes before it starts, shows the download as it goes,
+  checks that PyTorch can run on the GPU it found, and offers to update the engine after an update
+  of the app; it sets up the versions in `constraints.txt`, the ones a release was tested with, and
+  a new engine replaces the old only once it works; `--setup-engine` and `--check-engine` do the
+  same from the command line
+- `seamline --version`
+- A workflow that type-checks and builds the app and runs its end-to-end tests
 - `--events` option in `scripts/train.py` for per-epoch progress
 - Images in subfolders, named by their path in the folder, such as `line2/img_007.jpg`, and JFIF,
   GIF, WebP and AVIF images, as Seamtag lists them; label files Seamline writes in a subfolder give
@@ -108,6 +119,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   detail is in `docs/demo/README.md`, and the plans are in `docs/ROADMAP.md`
 - `make install` and `make install-dev` set up `.venv` with uv and the PyTorch build that
   `TORCH_BACKEND` names, `auto` unless given; they used to install none of the engine's packages
+- Electron 44, from 33; images drawn from the project folder leave the canvas readable, as
+  Electron 44 needs the image protocol to say so
+- The engine installs `opencv-python-headless` alone, 0.3 GB less: `opencv-python` came too, into
+  the same `cv2` folder, and nothing uses OpenCV's windows
+- A GPU machine's environment links the CUDA libraries that PyTorch 2.11 and later bring through
+  `cuda-toolkit`, which it downloaded again before, about 0.7 GB, and links inside folders that
+  several packages share, such as `nvidia/`, one package at a time, so pip writes nothing into the
+  machine's own Python; numpy stays below 2 only for PyTorch older than 2.3, so the machine's
+  Python can be 3.13 or later
+- On Windows, Stop ends a run and pre-labelling with their processes, which run without a console
+  window, and training over SSH isn't offered, as Windows has no rsync
+- On a Mac, the socket that lets SSH commands share one connection goes in `~/.ssh` when macOS's
+  temporary folder makes its path too long for a Unix socket, which stopped every SSH command
 
 ### Removed
 - The Docker files, `scripts/setup_dev.sh`, `docs/SETUP_GUIDE.md` and `docs/QUICK_REFERENCE.md`:
