@@ -109,6 +109,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `make install` and `make install-dev` set up `.venv` with uv and the PyTorch build that
   `TORCH_BACKEND` names, `auto` unless given; they used to install none of the engine's packages
 
+### Removed
+- The Docker files, `scripts/setup_dev.sh`, `docs/SETUP_GUIDE.md` and `docs/QUICK_REFERENCE.md`:
+  they installed PyTorch builds that didn't fit the machine, made the environment in `venv/` where
+  the app looks in `.venv/`, or repeated `docs/CI_CD.md`
+
 ### Fixed
 - The Train page no longer offers DenseNet with DeepLabV3, DeepLabV3+ or PAN, which smp can't
   build, and says why a batch of 1 or a small input can't train before a run starts

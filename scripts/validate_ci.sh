@@ -47,7 +47,6 @@ check_file ".flake8"
 check_file "Makefile"
 check_file "requirements-dev.txt"
 check_file "docs/CI_CD.md"
-check_file "docs/QUICK_REFERENCE.md"
 
 echo ""
 echo "📋 Checking configurations..."
@@ -99,7 +98,7 @@ echo ""
 echo "📊 Summary..."
 echo "-------------------------------------------"
 
-TOTAL_FILES=9
+TOTAL_FILES=8
 echo "Total files created: $TOTAL_FILES"
 echo ""
 echo -e "${GREEN}✅ CI/CD infrastructure validation complete!${NC}"

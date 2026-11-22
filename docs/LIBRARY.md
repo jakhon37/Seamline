@@ -21,7 +21,6 @@ The library under [Seamline](../README.md): semantic segmentation training, eval
 **Tooling**
 - 646 unit tests, of which 10 need a GPU and skip on CPU, and 193 are marked `slow`, which CI leaves out: most of the networks the Train page offers, each trained a step and exported
 - GitHub Actions, pre-commit hooks and a Makefile
-- Docker with GPU pass-through
 - TensorBoard and Weights & Biases logging
 
 CI also runs the full pipeline on synthetic data: train, resume, evaluate, inference and ONNX export. It runs on CPU, so it does not exercise the GPU and multi-GPU code paths.
@@ -78,9 +77,6 @@ python scripts/train.py --config configs/default.yaml
 
 # Multi-GPU
 torchrun --nproc_per_node=4 scripts/train.py --config configs/default.yaml
-
-# Docker
-docker-compose up -d training
 ```
 
 ### 5. Run inference
