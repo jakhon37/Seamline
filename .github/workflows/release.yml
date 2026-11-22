@@ -3,9 +3,21 @@ name: Release
 # Builds the installers on each system, then checks each the way a user would meet it: the
 # installed app starts, sets up its engine with PyTorch's CPU build, and runs it. A version tag
 # (v0.2.0) also makes a draft release with all of them; any run keeps them as workflow artifacts.
+# A pull request that changes how they're made or what they carry builds them too.
 on:
   push:
     tags: ['v*']
+  pull_request:
+    paths:
+      - .github/workflows/release.yml
+      - app/electron-builder.yml
+      - app/package.json
+      - app/package-lock.json
+      - app/scripts/**
+      - app/resources/**
+      - app/src/main/engine.ts
+      - requirements.txt
+      - constraints.txt
   workflow_dispatch:
 
 jobs:
