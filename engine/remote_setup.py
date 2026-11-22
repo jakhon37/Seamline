@@ -2,7 +2,8 @@
 """Build the training environment on a GPU machine. Run with the machine's python3.
 
 It sees nothing of the machine's other packages, which can conflict, except links to its
-PyTorch and its requirements: that already matches the GPU driver and is too big to copy to a full disk.
+PyTorch and its requirements: that already matches the GPU driver, and is too big to copy to a
+full disk.
 """
 import re
 import subprocess
@@ -11,8 +12,14 @@ from importlib import metadata
 from pathlib import Path
 
 PACKAGES = [
-    "segmentation-models-pytorch", "torchmetrics", "albumentations",
-    "opencv-python-headless", "PyYAML", "tqdm", "tensorboard", "scikit-learn",
+    "segmentation-models-pytorch",
+    "torchmetrics",
+    "albumentations",
+    "opencv-python-headless",
+    "PyYAML",
+    "tqdm",
+    "tensorboard",
+    "scikit-learn",
 ]
 # An environment made before Seamline offered UPerNet and Segformer can have an older smp: it is
 # made again, with the newest
@@ -21,16 +28,22 @@ CHECK = (
     "smp.UPerNet, smp.Segformer"
 )
 LINKED = ["torch", "torchvision"]
-# PyTorch 2.11 and later bring most of CUDA through cuda-toolkit's extras, as cuda-toolkit[cublas,...]
+# PyTorch 2.11 and later bring most of CUDA through cuda-toolkit's extras, as
+# cuda-toolkit[cublas,...]
 LINKED_PREFIXES = ("torch", "nvidia-", "cuda-", "triton")
 
 
 def parse(requirement: str) -> tuple:
-    """Name, extras and extra marker of a requirement such as 'cuda-toolkit[cublas]==13.2.2; ...'."""
+    """Name, extras and extra marker of a requirement, such as
+    'cuda-toolkit[cublas]==13.2.2; platform_system == "Linux"'."""
     found = re.match(r"\s*([\w.-]+)\s*(?:\[([^\]]*)\])?", requirement)
     extras = {e.strip().lower() for e in (found.group(2) or "").split(",") if e.strip()}
     marker = re.search(r"""extra\s*==\s*['"]([^'"]+)['"]""", requirement.partition(";")[2])
-    return found.group(1).lower().replace("_", "-"), extras, marker.group(1).lower() if marker else None
+    return (
+        found.group(1).lower().replace("_", "-"),
+        extras,
+        marker.group(1).lower() if marker else None,
+    )
 
 
 def linked_distributions() -> list:
@@ -66,18 +79,22 @@ def linked_distributions() -> list:
 
 
 def numpy_requirement() -> str:
-    """PyTorch builds older than 2.3 were made against numpy 1, which has no builds past Python 3.12."""
+    """PyTorch builds older than 2.3 were made against numpy 1, which has no builds past
+    Python 3.12."""
     try:
-        major, minor = (int(n) for n in re.match(r"(\d+)\.(\d+)", metadata.version("torch")).groups())
+        major, minor = (
+            int(n) for n in re.match(r"(\d+)\.(\d+)", metadata.version("torch")).groups()
+        )
     except (metadata.PackageNotFoundError, AttributeError):
         return "numpy"
     return "numpy" if (major, minor) >= (2, 3) else "numpy<2"
 
 
 def link_roots(dist) -> set:
-    """What of a distribution to link: its top-level folders and files, but inside a namespace folder
-    that several share, such as nvidia/ or cuda/, its own subfolders, so that the folder itself is the
-    environment's own and pip installs nothing through a link into the machine's Python."""
+    """What of a distribution to link: its top-level folders and files, but inside a namespace
+    folder that several share, such as nvidia/ or cuda/, its own subfolders, so that the folder
+    itself is the environment's own and pip installs nothing through a link into the machine's
+    Python."""
     roots = set()
     for file in dist.files or []:
         parts = file.parts
@@ -85,7 +102,9 @@ def link_roots(dist) -> set:
             continue
         top = Path(dist.locate_file(parts[0]))
         shared = (
-            len(parts) > 1 and top.is_dir() and not (top / "__init__.py").exists()
+            len(parts) > 1
+            and top.is_dir()
+            and not (top / "__init__.py").exists()
             and not parts[0].endswith((".dist-info", ".data"))
         )
         roots.add(parts[:2] if shared else parts[:1])
