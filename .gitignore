@@ -39,6 +39,7 @@ benchmark_results/
 *.jpg
 *.jpeg
 !app/resources/*.png
+!app/resources/icons/*.png
 !docs/brand/*.png
 !docs/media/*.png
 !tests/fixtures/seamtag/**/*.png
@@ -49,6 +50,12 @@ benchmark_results/
 .tools/
 .venv/
 node_modules/
+# Linked from another checkout, as worktrees do: a link isn't a folder to the rules above
+.venv
+node_modules
 app/out/
 app/dist/
+# The installers, and what goes into them that isn't kept here, such as uv
+app/build/
+app/release/
 app/test-results/

@@ -1,0 +1,115 @@
+name: Release
+
+# Builds the installers on each system, then checks each the way a user would meet it: the
+# installed app starts, sets up its engine with PyTorch's CPU build, and runs it. A version tag
+# (v0.2.0) also makes a draft release with all of them; any run keeps them as workflow artifacts.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            args: --linux
+          - os: windows-latest
+            args: --win
+          - os: macos-latest
+            args: --mac --arm64
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: A tag names the app's version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: test "${GITHUB_REF_NAME#v}" = "$(node -p "require('./package.json').version")"
+      - run: npm ci
+      - run: npx electron-vite build
+      # beforePack fetches the pinned uv for the system (scripts/fetch-uv.mjs)
+      - run: npx electron-builder ${{ matrix.args }} --publish never
+
+      # As a user installs it: the .deb, the Windows installer run silently, the app copied out of the disk image
+      - name: Install it
+        shell: bash
+        timeout-minutes: 10
+        run: |
+          case "$RUNNER_OS" in
+            Linux)
+              # The .deb adds the AppArmor profile Ubuntu wants before Chromium's sandbox may run
+              sudo apt-get update -q > /dev/null
+              sudo apt-get install -y -q ./release/*.deb > /dev/null
+              echo "SEAMLINE=$(command -v seamline)" >> "$GITHUB_ENV"
+              ;;
+            Windows)
+              ./release/Seamline-*-win-*.exe //S
+              echo "SEAMLINE=$(find "$(cygpath -u "$LOCALAPPDATA")/Programs" -iname seamline.exe | head -1)" >> "$GITHUB_ENV"
+              ;;
+            macOS)
+              hdiutil attach -nobrowse -mountpoint "$RUNNER_TEMP/dmg" release/*.dmg > /dev/null
+              ditto "$RUNNER_TEMP/dmg/Seamline.app" "$RUNNER_TEMP/Applications/Seamline.app"
+              hdiutil detach "$RUNNER_TEMP/dmg" > /dev/null
+              echo "SEAMLINE=$RUNNER_TEMP/Applications/Seamline.app/Contents/MacOS/Seamline" >> "$GITHUB_ENV"
+              ;;
+          esac
+
+      - name: The installed app starts
+        shell: bash
+        timeout-minutes: 5
+        run: |
+          test -n "$SEAMLINE" && "$SEAMLINE" --version
+          if [ "$RUNNER_OS" = Linux ]; then
+            # An AppImage can't add the AppArmor profile, so on Ubuntu it needs --no-sandbox
+            ./release/*.AppImage --appimage-extract-and-run --no-sandbox --version 2>&1 | grep -o "Seamline [0-9][0-9.]*"
+          fi
+
+      # About 0.3 to 0.4 GB from PyPI and PyTorch's index, into a profile of its own
+      - name: The installed app sets up its engine and runs it
+        shell: bash
+        timeout-minutes: 30
+        env:
+          SEAMLINE_USER_DATA: ${{ runner.temp }}/seamline-profile
+        run: |
+          # Electron on Linux wants a display even for these, which open no window
+          run() { if [ "$RUNNER_OS" = Linux ]; then xvfb-run -a "$SEAMLINE" "$@"; else "$SEAMLINE" "$@"; fi; }
+          run --setup-engine cpu
+          run --check-engine
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: installers-${{ matrix.os }}
+          path: |
+            app/release/Seamline-*.exe
+            app/release/Seamline-*.dmg
+            app/release/Seamline-*.AppImage
+            app/release/Seamline-*.deb
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: installers
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v3
+        with:
+          draft: true
+          tag_name: ${{ github.ref_name }}
+          files: installers/*
+          generate_release_notes: true

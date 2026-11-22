@@ -1,0 +1,101 @@
+# Installers for Windows, macOS on Apple silicon and Linux, each built on its own system in CI
+# (.github/workflows/release.yml); `npm run dist` builds the one for this computer. PyTorch isn't
+# in them: it comes in a build for each kind of GPU, so Seamline sets up its engine on first run
+# with uv, which they carry (src/main/engine.ts, scripts/fetch-uv.mjs).
+appId: io.github.jakhon37.seamline
+productName: Seamline
+executableName: seamline
+copyright: Copyright © 2026 Jakhongir Nodirov
+artifactName: Seamline-${version}-${os}-${arch}.${ext}
+directories:
+  output: release
+  buildResources: resources
+files:
+  - out/**
+  - package.json
+  # The window's icon on Linux
+  - resources/icon.png
+  - "!**/*.map"
+# The third-party notices, Chromium's licences for a Mac, and uv for the system, into build/
+beforePack: ./scripts/before-pack.mjs
+extraResources:
+  # The engine's code: it runs from here, and goes to a GPU machine as it is
+  - from: ../engine
+    to: seamline/engine
+    filter: ["*.py"]
+  - from: ../src
+    to: seamline/src
+    filter: ["**/*.py"]
+  - from: ../scripts
+    to: seamline/scripts
+    filter: ["*.py"]
+  - from: ../configs
+    to: seamline/configs
+  - from: ../requirements.txt
+    to: seamline/requirements.txt
+  # The versions the engine is set up with (app/scripts/constraints.mjs)
+  - from: ../constraints.txt
+    to: seamline/constraints.txt
+  - from: build/uv
+    to: uv
+    filter: ["uv", "uv.exe"]
+  # Seamline's licence, the notices of what it uses and what training downloads, and uv's licence
+  - from: ../LICENSE
+    to: legal/LICENSE
+  - from: ../THIRD_PARTY_NOTICES.md
+    to: legal/THIRD_PARTY_NOTICES.md
+  - from: build/legal/THIRD-PARTY-NOTICES.txt
+    to: legal/THIRD-PARTY-NOTICES.txt
+  - from: resources/legal
+    to: legal
+# sharp loads its libvips from files of its own, which can't be inside the asar archive
+asarUnpack:
+  - node_modules/sharp/**
+  - node_modules/@img/**
+# sharp comes prebuilt for Node-API: nothing to compile
+npmRebuild: false
+extraMetadata:
+  main: out/main/index.js
+win:
+  icon: resources/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  shortcutName: Seamline
+mac:
+  icon: resources/icon.icns
+  category: public.app-category.developer-tools
+  target:
+    - target: dmg
+      arch: [arm64]
+  # Signed ad hoc, so it runs on Apple silicon; not notarised (see docs/INSTALL.md)
+  identity: "-"
+  hardenedRuntime: false
+  # A Mac app leaves out Electron's and Chromium's licences, which Windows and Linux keep
+  extraResources:
+    - from: node_modules/electron/LICENSE
+      to: legal/LICENSE.electron.txt
+    # Written by beforePack from Electron's zip for the Mac being built
+    - from: build/legal/LICENSES.chromium.html
+      to: legal/LICENSES.chromium.html
+linux:
+  icon: resources/icons
+  # The window's WM_CLASS matches the .desktop file, so the dock shows Seamline's icon for it
+  syncDesktopName: true
+  category: Graphics
+  synopsis: Label images and train segmentation models
+  description: Label images, train a segmentation model on this computer or a GPU machine over SSH, and review what it proposes on the rest, least certain first. Labels are LabelMe files beside the images.
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]
+  maintainer: Jakhongir Nodirov <jakhon37@gmail.com>
+deb:
+  depends: [libgtk-3-0, libnotify4, libnss3, libxss1, libxtst6, xdg-utils, libatspi2.0-0, libuuid1, libsecret-1-0]
+  # Training on a GPU machine over SSH sends the dataset with rsync
+  recommends: [rsync, openssh-client]

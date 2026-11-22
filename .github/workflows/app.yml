@@ -1,0 +1,53 @@
+name: App
+
+# The desktop app: its types, its build, and its end-to-end tests, with the engine set up as
+# docs/INSTALL.md says, on PyTorch's CPU build. The test that needs a real GPU machine skips itself.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - uses: astral-sh/setup-uv@v10.3.3
+      - name: The engine
+        run: |
+          uv venv --python 3.12
+          uv pip install --torch-backend=cpu -r requirements.txt
+      - run: npm ci
+        working-directory: app
+      - run: npm run typecheck
+        working-directory: app
+      - run: npx electron-vite build
+        working-directory: app
+      # Ubuntu's AppArmor keeps apps without a profile from the user namespaces Chromium's sandbox uses
+      - name: Allow Chromium's sandbox
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: End-to-end tests
+        working-directory: app
+        # Chromium's GPU process wants a display even for a window no one sees
+        run: xvfb-run -a npx playwright test --reporter=line
+        env:
+          E2E_SHOTS: ${{ runner.temp }}/shots
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: e2e
+          path: |
+            app/test-results
+            ${{ runner.temp }}/shots
+          retention-days: 7
