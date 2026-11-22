@@ -106,6 +106,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The README is about half as long: how the app is built is in `docs/ARCHITECTURE.md`, which now
   describes the app, with the library's architecture in `docs/LIBRARY_ARCHITECTURE.md`; the results'
   detail is in `docs/demo/README.md`, and the plans are in `docs/ROADMAP.md`
+- `make install` and `make install-dev` set up `.venv` with uv and the PyTorch build that
+  `TORCH_BACKEND` names, `auto` unless given; they used to install none of the engine's packages
 
 ### Fixed
 - The Train page no longer offers DenseNet with DeepLabV3, DeepLabV3+ or PAN, which smp can't

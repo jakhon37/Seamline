@@ -15,18 +15,19 @@ help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-20s$(NC) %s\n", $$1, $$2}'
 	@echo ""
 
-# Installation targets
-install: ## Install production dependencies
-	@echo "$(BLUE)Installing production dependencies...$(NC)"
-	pip install --upgrade pip setuptools wheel
-	pip install -e .
+# Installation targets: docs/INSTALL.md says which PyTorch build to give, as
+# make install TORCH_BACKEND=cu126
+TORCH_BACKEND ?= auto
 
-install-dev: ## Install development dependencies
+install: ## Set up the engine's environment in .venv, with uv
+	@echo "$(BLUE)Installing the engine's packages...$(NC)"
+	@test -d .venv || uv venv --python 3.12
+	uv pip install --torch-backend=$(TORCH_BACKEND) -r requirements.txt
+
+install-dev: install ## Also install the development tools and pre-commit hooks
 	@echo "$(BLUE)Installing development dependencies...$(NC)"
-	pip install --upgrade pip setuptools wheel
-	pip install -r requirements-dev.txt
-	pip install -e .
-	pre-commit install
+	uv pip install -r requirements-dev.txt
+	.venv/bin/pre-commit install
 	@echo "$(GREEN)Development environment ready!$(NC)"
 
 # Testing targets
